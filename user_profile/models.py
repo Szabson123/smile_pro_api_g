@@ -4,8 +4,8 @@ from django.conf import settings
 
 class ProfileCentralUser(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)  # odniesienie do CentralUser
-    name = models.CharField(max_length=255)
-    surname = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, null=True, blank=True)
+    surname = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f'Profile for {self.user.email}'

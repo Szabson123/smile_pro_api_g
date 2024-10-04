@@ -34,6 +34,7 @@ SHARED_APPS = [
     'rest_framework',
     'drf_spectacular',
     'institution',
+    'custom_user',
 ]
 
 TENANT_APPS = [
@@ -45,8 +46,8 @@ TENANT_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_spectacular',
-
-    ]
+    'user_profile',
+]
 
 INSTALLED_APPS = SHARED_APPS + [
     app for app in TENANT_APPS if app not in SHARED_APPS
@@ -87,7 +88,7 @@ WSGI_APPLICATION = 'SmilePro.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': 'smile_pro',
+        'NAME': 'smile_pro_true',
         'USER': 'szaba',
         'PASSWORD': 'Kaktusik123',
         'HOST': 'localhost',
@@ -145,3 +146,5 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+AUTH_USER_MODEL = "custom_user.CentralUser"

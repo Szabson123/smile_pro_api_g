@@ -2,11 +2,14 @@ from django.db import models
 from django_tenants.models import TenantMixin, DomainMixin
 import re
 from django.core.exceptions import ValidationError
+from custom_user.models import CentralUser
 
 class Institution(TenantMixin):
     name = models.CharField(max_length=255)
     schema_name = models.CharField(max_length=63, unique=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
+
+    owner_user = models.ForeignKey(CentralUser, on_delete=models.SET_NULL, null=True, blank=True)
 
     auto_create_schema = True
     auto_drop_schema = False

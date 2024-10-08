@@ -47,6 +47,7 @@ TENANT_APPS = [
     'rest_framework',
     'drf_spectacular',
     'user_profile',
+    'event'
 ]
 
 INSTALLED_APPS = SHARED_APPS + [

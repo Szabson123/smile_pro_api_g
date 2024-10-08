@@ -10,7 +10,7 @@ from django.conf import settings
 def create_domain_for_institution(sender, instance, created, **kwargs):
     if created:
         domain = Domain()
-        domain.domain = f'localhost/{instance.schema_name}'
+        domain.domain = f'{instance.schema_name}.localhost/'
         domain.tenant = instance
         domain.is_primary = True
         domain.save()

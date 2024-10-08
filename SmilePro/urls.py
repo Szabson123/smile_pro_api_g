@@ -13,4 +13,5 @@ urlpatterns = [
     path('institution/', include('institution.urls')),
     path('user/', include('custom_user.urls')),
     path('profiles/', include('user_profile.urls')),
+    path('events/', include('event.urls'))
 ]

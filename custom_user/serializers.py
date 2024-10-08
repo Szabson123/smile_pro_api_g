@@ -14,6 +14,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Dodanie domeny instytucji do odpowiedzi
         if institution:
-            data['domain'] = f'localhost/{institution.schema_name}'
+            data['domain'] = f'{institution.schema_name}'
 
         return data

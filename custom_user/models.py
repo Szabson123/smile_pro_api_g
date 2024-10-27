@@ -21,7 +21,6 @@ class CentralUser(AbstractBaseUser):
     email = models.EmailField(unique=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
-    # Add these fields
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
 
@@ -31,8 +30,7 @@ class CentralUser(AbstractBaseUser):
 
     def __str__(self):
         return self.email
-
-    # Add these methods
+    
     def has_perm(self, perm, obj=None):
         return self.is_superuser
 

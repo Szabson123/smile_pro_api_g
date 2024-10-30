@@ -94,7 +94,7 @@ DATABASES = {
         'USER': 'szaba',
         'PASSWORD': 'Kaktusik123',
         'HOST': 'localhost',
-        'PORT': '5432'
+        'PORT': ''
     }
 }
 
@@ -131,7 +131,7 @@ USE_I18N = True
 USE_TZ = True
 
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -154,3 +154,19 @@ SPECTACULAR_SETTINGS = {
 }
 
 AUTH_USER_MODEL = "custom_user.CentralUser"
+
+
+ALLOWED_HOSTS = [
+    '.example.com',
+    '203.0.113.5',
+    'localhost',
+    '188.245.78.232',
+    'testy-smile-pro-jak.online',
+    '.testy-smile-pro-jak.online',
+]
+
+
+
+import os
+STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+

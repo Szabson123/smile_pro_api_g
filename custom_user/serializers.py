@@ -1,19 +1,23 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from institution.models import Institution
+from institution.models import Institution, Domain, UserInstitution
+from custom_user.models import CentralUser
+from user_profile.models import ProfileCentralUser
+from django_tenants.utils import tenant_context
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        # Wywołanie domyślnej metody, która zwróci access i refresh tokeny
         data = super().validate(attrs)
-        
-        # Użytkownik, który się loguje
         user = self.user
 
-        # Pobieranie instytucji związanej z użytkownikiem
-        institution = Institution.objects.filter(owner_user=user).first()
+        # Get institutions associated with the user
+        user_institutions = UserInstitution.objects.filter(user=user)
 
-        # Dodanie domeny instytucji do odpowiedzi
-        if institution:
-            data['domain'] = f'{institution.schema_name}'
+        domains = []
+        for user_institution in user_institutions:
+            institution = user_institution.institution
+            institution_domains = Domain.objects.filter(tenant=institution)
+            domains.extend([domain.domain for domain in institution_domains])
 
+        data['domains'] = list(set(domains))
         return data
+

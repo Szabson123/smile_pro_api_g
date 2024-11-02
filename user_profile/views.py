@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django_tenants.utils import schema_context
 
+from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from urllib.parse import urlparse
@@ -9,6 +10,9 @@ from user_profile.models import ProfileCentralUser
 from .serializers import ProfileCentralUserSerializer
 from django.db import DatabaseError
 from django.db import DatabaseError
+
+from user_profile.serializers import EmployeeProfileSerializer
+from user_profile.models import ProfileCentralUser
 
 class ProfileListView(APIView):
     def get(self, request, *args, **kwargs):
@@ -40,3 +44,14 @@ class ProfileListView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
+
+class EmployeeProfileViewSet(viewsets.ModelViewSet):
+    queryset = ProfileCentralUser.objects.all()
+    serializer_class = EmployeeProfileSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return ProfileCentralUser.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save()

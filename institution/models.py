@@ -8,9 +8,7 @@ class Institution(TenantMixin):
     name = models.CharField(max_length=255)
     schema_name = models.CharField(max_length=63, unique=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
-
-    owner_user = models.ForeignKey(CentralUser, on_delete=models.SET_NULL, null=True, blank=True)
-
+    owner_user = models.ForeignKey(CentralUser, on_delete=models.SET_NULL, null=True, blank=True, default=None)
     auto_create_schema = True
     auto_drop_schema = False
 
@@ -36,3 +34,14 @@ class Institution(TenantMixin):
 
 class Domain(DomainMixin):
     pass
+
+
+class UserInstitution(models.Model):
+    user = models.ForeignKey(CentralUser, on_delete=models.CASCADE)
+    institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('user', 'institution')
+
+    def __str__(self):
+        return f'{self.user.email} - {self.institution.name}'

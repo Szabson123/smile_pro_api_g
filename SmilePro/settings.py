@@ -24,7 +24,6 @@ ALLOWED_HOSTS = []
 
 SHARED_APPS = [
     'django_tenants',
-    'tenant_manager',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -157,8 +156,10 @@ AUTH_USER_MODEL = "custom_user.CentralUser"
 
 
 ALLOWED_HOSTS = [
+    '127.0.0.1',
     '.example.com',
     '203.0.113.5',
+    '.localhost',
     'localhost',
     '188.245.78.232',
     'testy-smile-pro-jak.online',
@@ -170,3 +171,16 @@ ALLOWED_HOSTS = [
 import os
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
+}

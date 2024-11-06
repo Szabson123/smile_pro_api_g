@@ -1,57 +1,45 @@
 from django.shortcuts import render
 from django_tenants.utils import schema_context
 
-from rest_framework import viewsets, permissions
-from rest_framework.views import APIView
+from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from urllib.parse import urlparse
-from institution.models import Domain
-from user_profile.models import ProfileCentralUser
+from rest_framework.generics import ListAPIView
+from rest_framework.decorators import action
+
 from .serializers import ProfileCentralUserSerializer
-from django.db import DatabaseError
-from django.db import DatabaseError
-
 from user_profile.serializers import EmployeeProfileSerializer
-from user_profile.models import ProfileCentralUser
+from user_profile.models import ProfileCentralUser, UserRoles
+from user_profile.permissions import HasProfilePermission, IsOwnerOfInstitution
 
-class ProfileListView(APIView):
-    def get(self, request, *args, **kwargs):
-        # Pobranie pełnego URL-a
-        full_url = request.build_absolute_uri()
-        
-        # Parsowanie URL-a, by uzyskać domenę
-        parsed_url = urlparse(full_url)
-        domain = parsed_url.hostname.rstrip('.')  # Usunięcie kropki na końcu
-        
-        try:
-            # Znalezienie instytucji powiązanej z domeną
-            institution_domain = Domain.objects.get(domain=domain)
-            schema_name = institution_domain.tenant.schema_name
-
-            # Przełączamy się na odpowiedni schemat przy użyciu schema_context
-            with schema_context(schema_name):
-                profiles = ProfileCentralUser.objects.all()
-
-                # Serializacja danych profili
-                serializer = ProfileCentralUserSerializer(profiles, many=True)
-                
-            return Response(serializer.data)
-
-        except Domain.DoesNotExist:
-            return Response({'error': 'Invalid domain'}, status=400)
-        except DatabaseError:
-            return Response({'error': 'Database error'}, status=500)
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+# Lista pracowników na zasadzie Imie nazwiko rola
+class ProfileListView(ListAPIView):
+    serializer_class = ProfileCentralUserSerializer
+    permission_classes = [IsOwnerOfInstitution]
+    
+    def get_queryset(self):
+        return ProfileCentralUser.objects.all()
 
 
+# Cały CRUD Związany z pracownikami 
 class EmployeeProfileViewSet(viewsets.ModelViewSet):
-    queryset = ProfileCentralUser.objects.all()
     serializer_class = EmployeeProfileSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsOwnerOfInstitution]
 
     def get_queryset(self):
         return ProfileCentralUser.objects.all()
 
     def perform_create(self, serializer):
         serializer.save()
+    
+    @action(detail=True, methods=['POST'])    
+    def change_role(self, request):
+        profile = self.get_object()
+        new_role = request.data.get('role')
+        
+        if new_role not in dict(UserRoles):
+            return Response({'error': 'Nie ma takiej roli'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        profile.role = new_role
+        profile.save()
+        
+        return Response({'status': "Rola została zmieniona"}, status=status.HTTP_200_OK)

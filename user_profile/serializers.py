@@ -10,7 +10,7 @@ class ProfileCentralUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProfileCentralUser
-        fields = ['name', 'surname', 'email']
+        fields = ['name', 'surname', 'email', 'phone_number']
 
 
 class EmployeeProfileSerializer(serializers.ModelSerializer):

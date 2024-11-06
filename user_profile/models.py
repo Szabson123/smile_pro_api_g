@@ -3,9 +3,18 @@ from django_tenants.utils import get_tenant_model
 from django.conf import settings
 from institution.models import Institution
 
+UserRoles = [
+    ('user', 'User'),
+    ('admin', 'Admin'),
+    ('doctor', 'Doctor'),
+    ('none', 'None') 
+]
+
+
 class ProfileCentralUser(models.Model):
     # admin
     owner = models.BooleanField(default=False)
+    role = models.CharField(max_length=30, choices=UserRoles, default='none')
 
     # personal
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)

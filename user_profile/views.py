@@ -17,6 +17,7 @@ class ProfileListView(ListAPIView):
     permission_classes = [IsOwnerOfInstitution]
     
     def get_queryset(self):
+        
         return ProfileCentralUser.objects.all()
 
 

@@ -4,9 +4,10 @@ from .models import Event, Absence
 from user_profile.models import DoctorSchedule
 
 class EventSerializer(serializers.ModelSerializer):
+    specjalista = serializers.CharField(source='profile')
     class Meta:
         model = Event
-        fields = ['id', 'name', 'profile', 'date', 'start_time', 'end_time']
+        fields = ['id', 'name', 'specjalista', 'date', 'start_time', 'end_time']
         
 
 class Absence(serializers.ModelSerializer):

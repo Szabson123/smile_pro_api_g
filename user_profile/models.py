@@ -40,3 +40,10 @@ class ProfileCentralUser(models.Model):
 
     def __str__(self):
         return f'Profile for {self.user.email}'
+    
+
+class DoctorSchedule(models.Model):
+    doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
+    day_of_week = models.IntegerField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()

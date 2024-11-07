@@ -1,8 +1,5 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from institution.models import Institution, Domain, UserInstitution
-from custom_user.models import CentralUser
-from user_profile.models import ProfileCentralUser
-from django_tenants.utils import tenant_context
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):

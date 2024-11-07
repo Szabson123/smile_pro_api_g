@@ -4,11 +4,14 @@ from user_profile.models import ProfileCentralUser
 class Event(models.Model):
     name = models.CharField(max_length=255)
     profile = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
+    date = models.DateField(default=None)
+    start_time = models.TimeField(default=None)
+    end_time = models.TimeField(default=None)
 
 TypeFree = [
-    ('zwolnienie', 'Zwolnienie')
-    ('urlop', 'Urlop')
-    ('inne', 'Inne')
+    ('zwolnienie', 'Zwolnienie'),
+    ('urlop', 'Urlop'),
+    ('inne', 'Inne'),
 ]
 
 class Absence(models.Model):

@@ -16,5 +16,5 @@ class Absence(serializers.ModelSerializer):
         model = Absence
         fields = ['id', 'profile', 'start_date', 'end_date', 'type', 'reason']
         
-    def get_profile(self, obj):
+    # def get_profile(self, obj):
         

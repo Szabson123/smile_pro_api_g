@@ -1,10 +1,11 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.parsers import JSONParser
 
 from .models import Event
 from .serializers import EventSerializer
@@ -23,46 +24,57 @@ class EventViewSet(viewsets.ModelViewSet):
 
 class TimeSlotView(APIView):
     permission_classes = [IsAuthenticated, HasProfilePermission]
+    parser_classes = [JSONParser]
 
-    def get(self, request):
-        doctor_id = request.query_params.get('doctor_id')
-        interval_minutes = int(request.query_params.get('interval', 15))
-        start_date_str = request.query_params.get('start_date')
-        end_date_str = request.query_params.get('end_date')
+    def post(self, request):
+        data = request.data
+        doctor_id = data.get('doctor_id')
+        interval_minutes = data.get('interval', 15)
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
 
-        # Validate inputs
         if not all([doctor_id, start_date_str, end_date_str]):
-            return Response({'error': 'Missing parameters'}, status=400)
+            return Response({'error': 'Brak wymaganych parametrów.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Parse dates
+        try:
+            interval_minutes = int(interval_minutes)
+            if interval_minutes <= 0:
+                raise ValueError
+        except ValueError:
+            return Response({'error': 'Nieprawidłowa wartość interwału.'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            if start_date > end_date:
+                return Response({'error': 'Data początkowa musi być wcześniejsza lub równa dacie końcowej.'}, status=status.HTTP_400_BAD_REQUEST)
         except ValueError:
-            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+            return Response({'error': 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get doctor profile
         try:
-            doctor = ProfileCentralUser.objects.get(id=doctor_id, role='doctor')
+            doctor = ProfileCentralUser.objects.get(id=doctor_id)
+            if doctor.role != 'doctor':
+                return Response({'error': 'Użytkownik nie jest lekarzem.'}, status=status.HTTP_400_BAD_REQUEST)
         except ProfileCentralUser.DoesNotExist:
-            return Response({'error': 'Doctor not found'}, status=404)
+            return Response({'error': 'Nie znaleziono lekarza.'}, status=status.HTTP_404_NOT_FOUND)
 
         slots = get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes)
 
-        return Response(slots)
+        return Response(slots, status=status.HTTP_200_OK)
+
 
 
 def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes):
     slots = []
     current_date = start_date
+    delta = timedelta(days=1)
     while current_date <= end_date:
         daily_slots = generate_daily_time_slots(doctor, current_date, interval_minutes)
-        # Fetch appointments for the doctor on the current date
         appointments = Event.objects.filter(
             profile=doctor,
             date=current_date
         )
         daily_slots = mark_occupied_slots(daily_slots, appointments)
         slots.extend(daily_slots)
-        current_date += timedelta(days=1)
+        current_date += delta
     return slots

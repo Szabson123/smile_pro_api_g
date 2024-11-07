@@ -44,6 +44,6 @@ class ProfileCentralUser(models.Model):
 
 class DoctorSchedule(models.Model):
     doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
-    day_of_week = models.IntegerField()
+    date = models.DateField(default=None)
     start_time = models.TimeField()
     end_time = models.TimeField()

@@ -3,13 +3,11 @@ from user_profile.models import DoctorSchedule
 from event.models import Event
 
 def generate_daily_time_slots(doctor, date, interval_minutes):
-    day_of_week = date.weekday()
-
     try:
-        schedule = DoctorSchedule.objects.get(doctor=doctor, day_of_week=day_of_week)
+        schedule = DoctorSchedule.objects.get(doctor=doctor, date=date)
     except DoctorSchedule.DoesNotExist:
         return []
-    
+
     start_datetime = datetime.combine(date, schedule.start_time)
     end_datetime = datetime.combine(date, schedule.end_time)
 

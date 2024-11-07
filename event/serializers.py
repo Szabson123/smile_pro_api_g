@@ -4,11 +4,9 @@ from .models import Event, Absence
 from user_profile.models import DoctorSchedule
 
 class EventSerializer(serializers.ModelSerializer):
-    profile = serializers.ReadOnlyField(source='profile.name')
     class Meta:
         model = Event
-        fields = ['id', 'name', 'profile']
-        read_only_fields = ['profile']
+        fields = ['id', 'name', 'profile', 'date', 'start_time', 'end_time']
         
 
 class Absence(serializers.ModelSerializer):

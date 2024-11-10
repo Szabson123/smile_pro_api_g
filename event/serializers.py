@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Event, Absence, Office
+from .models import Event, Absence, Office, VisitType, Tags
 from user_profile.models import DoctorSchedule, ProfileCentralUser
 from patients.models import Patient
 
@@ -24,6 +24,19 @@ class EventSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True
     )
+    visit_type = serializers.SlugRelatedField(
+        queryset=VisitType.objects.all(),
+        slug_field='name',
+        required=False,
+        allow_null=True
+    )
+    tags = serializers.SlugRelatedField(
+        many=True,
+        queryset=Tags.objects.all(),
+        slug_field='name',
+        required=False
+    )
+    
     doctor = serializers.IntegerField(source='doctor.id', read_only=True)
     office = serializers.IntegerField(source='office.id', read_only=True)
     patient = serializers.IntegerField(source='patient.id', read_only=True)
@@ -31,10 +44,9 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = [
-            'id', 'name', 
-            'doctor_id', 'office_id', 'patient_id',
-            'doctor', 'office', 'patient',
-            'date', 'start_time', 'end_time', 'cost'
+            'id', 'name', 'doctor_id', 'office_id', 'patient_id',
+            'doctor', 'office', 'patient', 'date', 'start_time',
+            'end_time', 'cost', 'visit_type', 'tags', 'description'
         ]
         read_only_fields = ['id'] 
 
@@ -83,7 +95,7 @@ class EventSerializer(serializers.ModelSerializer):
             return False
 
         conflicting_events = Event.objects.filter(
-            profile=doctor,
+            doctor=doctor,
             date=date,
             start_time__lt=end_time,
             end_time__gt=start_time

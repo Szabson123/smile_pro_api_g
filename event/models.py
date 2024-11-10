@@ -7,6 +7,17 @@ class Office(models.Model):
     name = models.CharField(max_length=255)
 
 
+class VisitType(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    cost = models.DecimalField(decimal_places=2, max_digits=10)
+
+
+class Tags(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    icon = models.CharField(max_length=255)
+    color = models.CharField(max_length=255)
+
+
 class Event(models.Model):
     name = models.CharField(max_length=255)
     doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
@@ -16,6 +27,10 @@ class Event(models.Model):
     end_time = models.TimeField(default=None)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, blank=True, null=True)
     cost = models.DecimalField(null=True, blank=True, default=0, decimal_places=2, max_digits=999)
+    visit_type = models.ForeignKey(VisitType, on_delete=models.CASCADE, null=True, blank=True, default=None)
+    description = models.TextField(blank=True, null=True)
+    tags = models.ManyToManyField(Tags, blank=True)
+
 
 TypeFree = [
     ('zwolnienie', 'Zwolnienie'),

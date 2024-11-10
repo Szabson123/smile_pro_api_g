@@ -108,7 +108,7 @@ class AbsenceViewSet(viewsets.ModelViewSet):
     serializer_class = AbsenceSerializer
     permission_classes = [HasProfilePermission]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['profile', 'date']
+    filterset_fields = ['profile']
 
 
 class DoctorScheduleViewSet(viewsets.ModelViewSet):

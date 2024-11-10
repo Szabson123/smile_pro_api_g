@@ -1,5 +1,6 @@
 from django.db import models
 from user_profile.models import ProfileCentralUser
+from patients.models import Patient
 
 
 class Office(models.Model):
@@ -13,6 +14,8 @@ class Event(models.Model):
     office = models.ForeignKey(Office, on_delete=models.CASCADE, blank=True, null=True)
     start_time = models.TimeField(default=None)
     end_time = models.TimeField(default=None)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, blank=True, null=True)
+    cost = models.DecimalField(null=True, blank=True, default=0, decimal_places=2, max_digits=999)
 
 TypeFree = [
     ('zwolnienie', 'Zwolnienie'),

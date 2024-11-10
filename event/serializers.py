@@ -1,14 +1,133 @@
 from rest_framework import serializers
 
 from .models import Event, Absence, Office
-from user_profile.models import DoctorSchedule
+from user_profile.models import DoctorSchedule, ProfileCentralUser
+from patients.models import Patient
 
 class EventSerializer(serializers.ModelSerializer):
-    doctor_id = serializers.CharField(source='profile')
-    office_id = serializers.CharField(source='office')
+    doctor_id = serializers.PrimaryKeyRelatedField(
+        source='profile',
+        queryset=ProfileCentralUser.objects.filter(role='doctor'),
+        write_only=True
+    )
+    office_id = serializers.PrimaryKeyRelatedField(
+        source='office',
+        queryset=Office.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
+    patient_id = serializers.PrimaryKeyRelatedField(
+        source='patient',
+        queryset=Patient.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
+    doctor = serializers.IntegerField(source='profile.id', read_only=True)
+    office = serializers.IntegerField(source='office.id', read_only=True)
+    patient = serializers.IntegerField(source='patient.id', read_only=True)
+
     class Meta:
         model = Event
-        fields = ['id', 'name', 'doctor_id', 'date', 'start_time', 'end_time', 'office_id']
+        fields = [
+            'id', 'name', 
+            'doctor_id', 'office_id', 'patient_id',
+            'doctor', 'office', 'patient',
+            'date', 'start_time', 'end_time', 'cost'
+        ]
+        read_only_fields = ['id'] 
+
+    def validate(self, data):
+        profile = data.get('profile')
+        office = data.get('office')
+        patient = data.get('patient')
+        date = data.get('date')
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+
+        if not all([profile, date, start_time, end_time]):
+            raise serializers.ValidationError(
+                "Wymagane jest podanie lekarza, daty, godziny rozpoczęcia i zakończenia."
+            )
+
+        if profile.role != 'doctor':
+            raise serializers.ValidationError("Wybrany profil nie ma roli 'doctor'.")
+
+        if start_time >= end_time:
+            raise serializers.ValidationError(
+                {"end_time": "Godzina zakończenia musi być po godzinie rozpoczęcia."}
+            )
+
+        if not self.is_doctor_available(profile, date, start_time, end_time):
+            raise serializers.ValidationError("Lekarz nie jest dostępny w podanym czasie.")
+
+        if office:
+            if not self.is_office_available(office, date, start_time, end_time):
+                raise serializers.ValidationError("Gabinet nie jest dostępny w podanym czasie.")
+
+        if patient:
+            if not self.is_patient_available(patient, date, start_time, end_time):
+                raise serializers.ValidationError("Pacjent nie jest dostępny w podanym czasie.")
+
+        return data
+
+    def is_doctor_available(self, doctor, date, start_time, end_time):
+        day_num = date.weekday()
+        try:
+            schedule = DoctorSchedule.objects.get(doctor=doctor, day_num=day_num)
+        except DoctorSchedule.DoesNotExist:
+            return False 
+
+        if start_time < schedule.start_time or end_time > schedule.end_time:
+            return False
+
+        conflicting_events = Event.objects.filter(
+            profile=doctor,
+            date=date,
+            start_time__lt=end_time,
+            end_time__gt=start_time
+        )
+
+        if self.instance:
+            conflicting_events = conflicting_events.exclude(id=self.instance.id)
+
+        if conflicting_events.exists():
+            return False
+
+        return True
+
+    def is_office_available(self, office, date, start_time, end_time):
+        conflicting_events = Event.objects.filter(
+            office=office,
+            date=date,
+            start_time__lt=end_time,
+            end_time__gt=start_time
+        )
+
+        if self.instance:
+            conflicting_events = conflicting_events.exclude(id=self.instance.id)
+
+        if conflicting_events.exists():
+            return False
+
+        return True
+
+    def is_patient_available(self, patient, date, start_time, end_time):
+        conflicting_events = Event.objects.filter(
+            patient=patient,
+            date=date,
+            start_time__lt=end_time,
+            end_time__gt=start_time
+        )
+
+        if self.instance:
+            conflicting_events = conflicting_events.exclude(id=self.instance.id)
+
+        if conflicting_events.exists():
+            return False
+
+        return True
         
 
 class AbsenceSerializer(serializers.ModelSerializer):

@@ -75,25 +75,27 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
     current_date = start_date
     delta = timedelta(days=1)
 
-    # Pobierz wszystkie wydarzenia w zakresie dat
-    all_events = Event.objects.filter(
-        date__range=(start_date, end_date)
-    ).select_related('profile', 'office')
-
     while current_date <= end_date:
         daily_slots = generate_daily_time_slots(doctor, current_date, interval_minutes)
         if not daily_slots:
             current_date += delta
-            continue  # Brak slotów na ten dzień
+            continue  
 
-        # Wydarzenia na bieżący dzień
-        events_on_date = [event for event in all_events if event.date == current_date]
+        appointments = Event.objects.filter(
+            profile=doctor,
+            date=current_date
+        ).select_related('profile', 'office')
 
-        # Podziel wydarzenia na wizyty lekarza i inne
-        appointments = [event for event in events_on_date if event.profile == doctor]
-        other_appointments = [event for event in events_on_date if event.profile != doctor]
+        if office:
+            other_appointments = Event.objects.filter(
+                date=current_date,
+                office=office
+            ).exclude(profile=doctor).select_related('profile', 'office')
+        else:
+            other_appointments = []
 
         daily_slots = mark_occupied_slots(daily_slots, appointments, other_appointments, office)
         slots.extend(daily_slots)
         current_date += delta
     return slots
+

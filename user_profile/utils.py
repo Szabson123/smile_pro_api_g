@@ -34,35 +34,36 @@ def generate_daily_time_slots(doctor, date, interval_minutes):
     return slots
 
 def mark_occupied_slots(slots, appointments, other_appointments, office):
+    slot_times = [(slot['start'].time(), slot['end'].time()) for slot in slots]
+
+    appointment_times = set((appointment.start_time, appointment.end_time) for appointment in appointments)
+    other_appointment_times = set((appointment.start_time, appointment.end_time) for appointment in other_appointments)
+
     for slot in slots:
-        slot_start = slot['start']
-        slot_end = slot['end']
+        slot_start_time = slot['start'].time()
+        slot_end_time = slot['end'].time()
         slot_occupied = False
 
         for appointment in appointments:
-            appointment_start = datetime.combine(appointment.date, appointment.start_time)
-            appointment_end = datetime.combine(appointment.date, appointment.end_time)
-            if appointment_start < slot_end and appointment_end > slot_start:
+            if appointment.start_time < slot_end_time and appointment.end_time > slot_start_time:
                 slot['status'] = 'zajęty'
-                slot['occupied_by'] = 'Ty'  
+                slot['occupied_by'] = 'Ty'
                 slot_occupied = True
                 break
 
         if slot_occupied:
-            continue  
+            continue
 
         if office:
-            for other_appointment in other_appointments:
-                if other_appointment.office_id == office.id:
-                    appointment_start = datetime.combine(other_appointment.date, other_appointment.start_time)
-                    appointment_end = datetime.combine(other_appointment.date, other_appointment.end_time)
-                    if appointment_start < slot_end and appointment_end > slot_start:
-                        occupied_by_profile = other_appointment.profile
-                        slot['status'] = 'zajęty'
-                        slot['occupied_by'] = f"{occupied_by_profile.name} {occupied_by_profile.surname}"
-                        slot_occupied = True
-                        break
+            for appointment in other_appointments:
+                if appointment.start_time < slot_end_time and appointment.end_time > slot_start_time:
+                    occupied_by_profile = appointment.profile
+                    slot['status'] = 'zajęty'
+                    slot['occupied_by'] = f"{occupied_by_profile.name} {occupied_by_profile.surname}"
+                    slot_occupied = True
+                    break
         else:
-            pass  
+            pass
 
     return slots
+

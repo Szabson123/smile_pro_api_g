@@ -145,4 +145,10 @@ class DoctorScheduleSerializer(serializers.ModelSerializer):
     doctor_id = serializers.CharField(source='doctor')
     class Meta:
         model = DoctorSchedule
-        fields = ['doctor_id', 'date', 'start_time', 'end_time', 'office']
+        fields = ['doctor_id', 'day_num', 'start_time', 'end_time']
+
+
+class OfficeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Office
+        fields = ['id', 'name']

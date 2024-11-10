@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 
 from .models import Event, Office, Absence
-from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSerializer
+from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSerializer, OfficeSerializer
 from user_profile.models import ProfileCentralUser, DoctorSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from datetime import timedelta, datetime
@@ -110,4 +110,9 @@ class DoctorScheduleViewSet(viewsets.ModelViewSet):
     queryset = DoctorSchedule.objects.all()
     serializer_class = DoctorScheduleSerializer
     permission_classes = [HasProfilePermission]
-    
+
+
+class OfficeViewSet(viewsets.ModelViewSet):
+    queryset = Office.objects.all()
+    serializer_class = OfficeSerializer
+    permission_classes = [HasProfilePermission]

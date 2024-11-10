@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 
-from .models import Event
+from .models import Event, Office
 from .serializers import EventSerializer
 from user_profile.models import ProfileCentralUser
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
@@ -29,6 +29,7 @@ class TimeSlotView(APIView):
     def post(self, request):
         data = request.data
         doctor_id = data.get('doctor_id')
+        office_id = data.get('office_id')  
         interval_minutes = data.get('interval', 15)
         start_date_str = data.get('start_date')
         end_date_str = data.get('end_date')
@@ -42,7 +43,7 @@ class TimeSlotView(APIView):
                 raise ValueError
         except ValueError:
             return Response({'error': 'Nieprawidłowa wartość interwału.'}, status=status.HTTP_400_BAD_REQUEST)
-
+        
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
@@ -58,23 +59,41 @@ class TimeSlotView(APIView):
         except ProfileCentralUser.DoesNotExist:
             return Response({'error': 'Nie znaleziono lekarza.'}, status=status.HTTP_404_NOT_FOUND)
 
-        slots = get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes)
+        if office_id:
+            try:
+                office = Office.objects.get(id=office_id)
+            except Office.DoesNotExist:
+                return Response({'error': 'Nie znaleziono gabinetu.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            office = None
+        slots = get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office)
 
         return Response(slots, status=status.HTTP_200_OK)
 
-
-
-def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes):
+def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office):
     slots = []
     current_date = start_date
     delta = timedelta(days=1)
+
+    # Pobierz wszystkie wydarzenia w zakresie dat
+    all_events = Event.objects.filter(
+        date__range=(start_date, end_date)
+    ).select_related('profile', 'office')
+
     while current_date <= end_date:
         daily_slots = generate_daily_time_slots(doctor, current_date, interval_minutes)
-        appointments = Event.objects.filter(
-            profile=doctor,
-            date=current_date
-        )
-        daily_slots = mark_occupied_slots(daily_slots, appointments)
+        if not daily_slots:
+            current_date += delta
+            continue  # Brak slotów na ten dzień
+
+        # Wydarzenia na bieżący dzień
+        events_on_date = [event for event in all_events if event.date == current_date]
+
+        # Podziel wydarzenia na wizyty lekarza i inne
+        appointments = [event for event in events_on_date if event.profile == doctor]
+        other_appointments = [event for event in events_on_date if event.profile != doctor]
+
+        daily_slots = mark_occupied_slots(daily_slots, appointments, other_appointments, office)
         slots.extend(daily_slots)
         current_date += delta
     return slots

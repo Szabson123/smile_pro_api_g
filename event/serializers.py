@@ -164,3 +164,15 @@ class OfficeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Office
         fields = ['id', 'name']
+
+
+class VisitTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VisitType
+        fields = ['id', 'name', 'cost']
+
+
+class TagsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tags
+        fields = ['id', 'name', 'icon', 'color']

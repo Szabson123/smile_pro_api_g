@@ -7,9 +7,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 
-from .models import Event, Office
-from .serializers import EventSerializer
-from user_profile.models import ProfileCentralUser
+from .models import Event, Office, Absence
+from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSerializer
+from user_profile.models import ProfileCentralUser, DoctorSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from datetime import timedelta, datetime
 
@@ -99,3 +99,15 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
         current_date += delta
     return slots
 
+
+class AbsenceViewSet(viewsets.ModelViewSet):
+    queryset = Absence.objects.all()
+    serializer_class = AbsenceSerializer
+    permission_classes = [HasProfilePermission]
+
+
+class DoctorScheduleViewSet(viewsets.ModelViewSet):
+    queryset = DoctorSchedule.objects.all()
+    serializer_class = DoctorScheduleSerializer
+    permission_classes = [HasProfilePermission]
+    

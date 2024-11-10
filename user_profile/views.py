@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django_tenants.utils import schema_context
+from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
@@ -25,6 +26,8 @@ class ProfileListView(ListAPIView):
 class EmployeeProfileViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeProfileSerializer
     permission_classes = [IsOwnerOfInstitution]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['role']
 
     def get_queryset(self):
         return ProfileCentralUser.objects.all()

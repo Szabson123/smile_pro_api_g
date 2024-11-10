@@ -1,3 +1,4 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 
 from rest_framework.decorators import action
@@ -20,6 +21,8 @@ class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
     permission_classes = [HasProfilePermission]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['profile', 'office', 'patient', 'date']
     
 
 class TimeSlotView(APIView):
@@ -104,6 +107,8 @@ class AbsenceViewSet(viewsets.ModelViewSet):
     queryset = Absence.objects.all()
     serializer_class = AbsenceSerializer
     permission_classes = [HasProfilePermission]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['profile', 'date']
 
 
 class DoctorScheduleViewSet(viewsets.ModelViewSet):

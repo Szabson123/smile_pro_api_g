@@ -6,7 +6,7 @@ from patients.models import Patient
 
 class EventSerializer(serializers.ModelSerializer):
     doctor_id = serializers.PrimaryKeyRelatedField(
-        source='profile',
+        source='doctor',
         queryset=ProfileCentralUser.objects.filter(role='doctor'),
         write_only=True
     )
@@ -24,7 +24,7 @@ class EventSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True
     )
-    doctor = serializers.IntegerField(source='profile.id', read_only=True)
+    doctor = serializers.IntegerField(source='doctor.id', read_only=True)
     office = serializers.IntegerField(source='office.id', read_only=True)
     patient = serializers.IntegerField(source='patient.id', read_only=True)
 
@@ -39,19 +39,19 @@ class EventSerializer(serializers.ModelSerializer):
         read_only_fields = ['id'] 
 
     def validate(self, data):
-        profile = data.get('profile')
+        doctor = data.get('doctor')
         office = data.get('office')
         patient = data.get('patient')
         date = data.get('date')
         start_time = data.get('start_time')
         end_time = data.get('end_time')
 
-        if not all([profile, date, start_time, end_time]):
+        if not all([doctor, date, start_time, end_time]):
             raise serializers.ValidationError(
                 "Wymagane jest podanie lekarza, daty, godziny rozpoczęcia i zakończenia."
             )
 
-        if profile.role != 'doctor':
+        if doctor.role != 'doctor':
             raise serializers.ValidationError("Wybrany profil nie ma roli 'doctor'.")
 
         if start_time >= end_time:
@@ -59,7 +59,7 @@ class EventSerializer(serializers.ModelSerializer):
                 {"end_time": "Godzina zakończenia musi być po godzinie rozpoczęcia."}
             )
 
-        if not self.is_doctor_available(profile, date, start_time, end_time):
+        if not self.is_doctor_available(doctor, date, start_time, end_time):
             raise serializers.ValidationError("Lekarz nie jest dostępny w podanym czasie.")
 
         if office:

@@ -9,7 +9,7 @@ class Office(models.Model):
 
 class Event(models.Model):
     name = models.CharField(max_length=255)
-    profile = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
+    doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     date = models.DateField(default=None)
     office = models.ForeignKey(Office, on_delete=models.CASCADE, blank=True, null=True)
     start_time = models.TimeField(default=None)

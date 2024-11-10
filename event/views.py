@@ -22,7 +22,7 @@ class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
     permission_classes = [HasProfilePermission]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['profile', 'office', 'patient', 'date']
+    filterset_fields = ['doctor', 'office', 'patient', 'date']
     
 
 class TimeSlotView(APIView):
@@ -85,15 +85,15 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
             continue  
 
         appointments = Event.objects.filter(
-            profile=doctor,
+            doctor=doctor,
             date=current_date
-        ).select_related('profile', 'office')
+        ).select_related('doctor', 'office')
 
         if office:
             other_appointments = Event.objects.filter(
                 date=current_date,
                 office=office
-            ).exclude(profile=doctor).select_related('profile', 'office')
+            ).exclude(doctor=doctor).select_related('doctor', 'office')
         else:
             other_appointments = []
 

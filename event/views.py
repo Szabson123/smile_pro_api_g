@@ -1,8 +1,6 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 
-from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -11,6 +9,7 @@ from rest_framework.parsers import JSONParser
 from .models import Event, Office, Absence, VisitType, Tags
 from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer
 from .filters import EventFilter
+from .utlis import *
 from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from datetime import timedelta, datetime
@@ -200,3 +199,95 @@ class AvailableAssistantsView(APIView):
 
         serializer = ProfileCentralUserSerializer(available_assistants, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class AvailabilityCheckView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def post(self, request):
+        data = request.data
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+        interval_days = data.get('interval_days')
+        start_time_str = data.get('start_time')
+        end_time_str = data.get('end_time')
+        doctor_id = data.get('doctor_id')
+        assistant_id = data.get('assistant_id')
+        office_id = data.get('office_id')
+
+        if not all([start_date_str, end_date_str, interval_days, start_time_str, end_time_str]):
+            return Response({'error': 'Brak wymaganych parametrów.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            if start_date > end_date:
+                return Response({'error': 'Data początkowa musi być wcześniejsza niż data końcowa.'}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({'error': 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            interval_days = int(interval_days)
+            if interval_days <= 0:
+                raise ValueError
+        except ValueError:
+            return Response({'error': 'Nieprawidłowa wartość interwału. Musi być liczbą całkowitą większą od zera.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            start_time = datetime.strptime(start_time_str, '%H:%M').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M').time()
+            if start_time >= end_time:
+                return Response({'error': 'Godzina rozpoczęcia musi być wcześniejsza niż godzina zakończenia.'}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({'error': 'Nieprawidłowy format godziny. Użyj HH:MM.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        doctor = None
+        if doctor_id:
+            try:
+                doctor = ProfileCentralUser.objects.get(id=doctor_id, role='doctor')
+            except ProfileCentralUser.DoesNotExist:
+                return Response({'error': 'Nie znaleziono lekarza o podanym ID.'}, status=status.HTTP_404_NOT_FOUND)
+
+        assistant = None
+        if assistant_id:
+            try:
+                assistant = ProfileCentralUser.objects.get(id=assistant_id, role='assistant')
+            except ProfileCentralUser.DoesNotExist:
+                return Response({'error': 'Nie znaleziono asystenta o podanym ID.'}, status=status.HTTP_404_NOT_FOUND)
+
+        office = None
+        if office_id:
+            try:
+                office = Office.objects.get(id=office_id)
+            except Office.DoesNotExist:
+                return Response({'error': 'Nie znaleziono gabinetu o podanym ID.'}, status=status.HTTP_404_NOT_FOUND)
+
+        dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            dates.append(current_date)
+            current_date += timedelta(days=interval_days)
+
+        availability_list = []
+        for date in dates:
+            conflicts = []
+
+            if doctor and not is_doctor_available(doctor, date, start_time, end_time):
+                conflicts.append('Lekarz niedostępny')
+
+            if assistant and not is_assistant_available(assistant, date, start_time, end_time):
+                conflicts.append('Asystent niedostępny')
+
+            if office and not is_office_available(office, date, start_time, end_time):
+                conflicts.append('Gabinet zajęty')
+
+            availability_list.append({
+                'date': date,
+                'start_time': start_time,
+                'end_time': end_time,
+                'available': not conflicts,
+                'conflicts': conflicts
+            })
+
+        return Response(availability_list, status=status.HTTP_200_OK)

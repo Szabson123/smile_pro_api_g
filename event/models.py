@@ -19,7 +19,7 @@ class Tags(models.Model):
 
 
 class Event(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, null=True, blank=True)
     doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     date = models.DateField(default=None)
     office = models.ForeignKey(Office, on_delete=models.CASCADE, blank=True, null=True)
@@ -31,6 +31,8 @@ class Event(models.Model):
     description = models.TextField(blank=True, null=True)
     tags = models.ManyToManyField(Tags, blank=True)
     assistant = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE, blank=True, null=True, related_name='assistant')
+    is_rep = models.BooleanField(default=False)
+    rep_id = models.IntegerField(default=0)
 
 
 TypeFree = [

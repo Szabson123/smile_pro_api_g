@@ -8,7 +8,7 @@ router.register(r'absence', AbsenceViewSet, basename='absence')
 router.register(r'doctor_schedule', EmployeeScheduleViewSet, basename='doctor_schedule')
 router.register(r'office', OfficeViewSet, basename='office')
 router.register(r'tags', TagsViewSet, basename='tags')
-router.register(r'viewset', VisitTypeViewSet, basename='visittype')
+router.register(r'visittype', VisitTypeViewSet, basename='visittype')
 
 urlpatterns = [
     path('', include(router.urls)),

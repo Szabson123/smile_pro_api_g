@@ -30,6 +30,7 @@ class Event(models.Model):
     visit_type = models.ForeignKey(VisitType, on_delete=models.CASCADE, null=True, blank=True, default=None)
     description = models.TextField(blank=True, null=True)
     tags = models.ManyToManyField(Tags, blank=True)
+    assistant = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE, blank=True, null=True, related_name='assistant')
 
 
 TypeFree = [

@@ -186,7 +186,7 @@ class AvailableAssistantsView(APIView):
                 continue 
 
             conflicting_events = Event.objects.filter(
-                doctor=assistant,
+                assistant=assistant,
                 date=date,
                 start_time__lt=end_time,
                 end_time__gt=start_time

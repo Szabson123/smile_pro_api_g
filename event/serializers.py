@@ -4,35 +4,26 @@ from .models import Event, Absence, Office, VisitType, Tags
 from .utlis import is_doctor_available, is_assistant_available, is_office_available, is_patient_available
 from user_profile.models import EmployeeSchedule, ProfileCentralUser
 from patients.models import Patient
+from django.db.models import Max
+from datetime import timedelta
 
 
 class EventSerializer(serializers.ModelSerializer):
-    doctor_id = serializers.PrimaryKeyRelatedField(
-        source='doctor',
-        queryset=ProfileCentralUser.objects.filter(role='doctor'),
-        write_only=True
-    )
-    office_id = serializers.PrimaryKeyRelatedField(
-        source='office',
-        queryset=Office.objects.all(),
-        required=False,
-        allow_null=True,
-        write_only=True
-    )
-    assistant_id = serializers.PrimaryKeyRelatedField(
-        source='assistant',
-        queryset=ProfileCentralUser.objects.filter(role='assistant'),
-        required=False,
-        allow_null=True,
-        write_only=True
-    )
-    patient_id = serializers.PrimaryKeyRelatedField(
-        source='patient',
-        queryset=Patient.objects.all(),
-        required=False,
-        allow_null=True,
-        write_only=True
-    )
+    doctor_id = serializers.IntegerField(write_only=True, required=True)
+    office_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    assistant_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    patient_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    
+    doctor = serializers.IntegerField(source='doctor.id', read_only=True)
+    office = serializers.IntegerField(source='office.id', read_only=True)
+    assistant = serializers.IntegerField(source='assistant.id', read_only=True)
+    patient = serializers.IntegerField(source='patient.id', read_only=True)
+
+    is_rep = serializers.BooleanField(write_only=True, default=False)
+    rep_id = serializers.IntegerField(read_only=True)
+    end_date = serializers.DateField(write_only=True, required=False)
+    interval_days = serializers.IntegerField(write_only=True, required=False)
+
     visit_type = serializers.SlugRelatedField(
         queryset=VisitType.objects.all(),
         slug_field='name',
@@ -45,37 +36,60 @@ class EventSerializer(serializers.ModelSerializer):
         slug_field='name',
         required=False
     )
-    
-    doctor = serializers.IntegerField(source='doctor.id', read_only=True)
-    office = serializers.IntegerField(source='office.id', read_only=True)
-    assistant = serializers.IntegerField(source='assistant.id', read_only=True)
-    patient = serializers.IntegerField(source='patient.id', read_only=True)
 
     class Meta:
         model = Event
         fields = [
             'id', 'name', 'doctor_id', 'office_id', 'assistant_id', 'patient_id',
             'doctor', 'office', 'assistant', 'patient', 'date', 'start_time',
-            'end_time', 'cost', 'visit_type', 'tags', 'description'
+            'end_time', 'cost', 'visit_type', 'tags', 'description',
+            'is_rep', 'rep_id', 'end_date', 'interval_days'
         ]
-        read_only_fields = ['id'] 
+        read_only_fields = ['id', 'rep_id']
 
     def validate(self, data):
-        doctor = data.get('doctor')
-        office = data.get('office')
-        assistant = data.get('assistant')
-        patient = data.get('patient')
+        doctor_id = data.get('doctor_id')
+        office_id = data.get('office_id')
+        assistant_id = data.get('assistant_id')
+        patient_id = data.get('patient_id')
         date = data.get('date')
         start_time = data.get('start_time')
         end_time = data.get('end_time')
 
-        if not all([doctor, date, start_time, end_time]):
-            raise serializers.ValidationError(
-                "Wymagane jest podanie lekarza, daty, godziny rozpoczęcia i zakończenia."
-            )
+        is_rep = data.get('is_rep', False)
 
-        if doctor.role != 'doctor':
-            raise serializers.ValidationError("Wybrany profil nie ma roli 'doctor'.")
+        try:
+            doctor = ProfileCentralUser.objects.get(id=doctor_id, role='doctor')
+        except ProfileCentralUser.DoesNotExist:
+            raise serializers.ValidationError({"doctor_id": "Wybrany lekarz nie istnieje lub nie ma roli 'doctor'."})
+
+        office = None
+        if office_id is not None:
+            try:
+                office = Office.objects.get(id=office_id)
+            except Office.DoesNotExist:
+                raise serializers.ValidationError({"office_id": "Wybrany gabinet nie istnieje."})
+
+        # Pobranie instancji asystenta
+        assistant = None
+        if assistant_id is not None:
+            try:
+                assistant = ProfileCentralUser.objects.get(id=assistant_id, role='assistant')
+            except ProfileCentralUser.DoesNotExist:
+                raise serializers.ValidationError({"assistant_id": "Wybrany asystent nie istnieje lub nie ma roli 'assistant'."})
+
+        # Pobranie instancji pacjenta
+        patient = None
+        if patient_id is not None:
+            try:
+                patient = Patient.objects.get(id=patient_id)
+            except Patient.DoesNotExist:
+                raise serializers.ValidationError({"patient_id": "Wybrany pacjent nie istnieje."})
+
+        if not all([date, start_time, end_time]):
+            raise serializers.ValidationError(
+                "Wymagane jest podanie daty, godziny rozpoczęcia i zakończenia."
+            )
 
         if start_time >= end_time:
             raise serializers.ValidationError(
@@ -96,7 +110,50 @@ class EventSerializer(serializers.ModelSerializer):
         if patient and not is_patient_available(patient, date, start_time, end_time, exclude_event_id=exclude_event_id):
             raise serializers.ValidationError("Pacjent nie jest dostępny w podanym czasie.")
 
+        # Dodanie instancji do danych
+        data['doctor'] = doctor
+        data['office'] = office
+        data['assistant'] = assistant
+        data['patient'] = patient
+
         return data
+
+    def create(self, validated_data):
+        is_rep = validated_data.pop('is_rep', False)
+        rep_id = None
+
+        if is_rep:
+            last_rep = Event.objects.aggregate(max_rep=Max('rep_id'))['max_rep'] or 0
+            rep_id = last_rep + 1
+
+            date = validated_data.get('date', None)
+            end_date = validated_data.pop('end_date', None)
+            interval_days = validated_data.pop('interval_days', None)
+
+            if not all([date, end_date, interval_days]):
+                raise serializers.ValidationError(
+                    "Dla powtarzających się wydarzeń wymagane są pola: date (data początkowa), end_date, interval_days."
+                )
+
+            event_dates = []
+            current_date = date
+            while current_date <= end_date:
+                event_dates.append(current_date)
+                current_date += timedelta(days=interval_days)
+
+            created_events = []
+            for event_date in event_dates:
+                event_data = validated_data.copy()
+                event_data['date'] = event_date
+                event_data['rep_id'] = rep_id
+
+                event = Event.objects.create(**event_data)
+                created_events.append(event)
+
+            return created_events
+        else:
+            event = Event.objects.create(**validated_data)
+            return event
 
 class AbsenceSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()

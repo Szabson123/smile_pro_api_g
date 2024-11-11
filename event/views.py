@@ -1,3 +1,5 @@
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 
@@ -30,6 +32,17 @@ class TimeSlotView(APIView):
     permission_classes = [IsAuthenticated, HasProfilePermission]
     parser_classes = [JSONParser]
 
+    @extend_schema(
+        description="Generuje dostępne sloty czasowe dla lekarza w zadanym przedziale czasowym.",
+        parameters=[
+            OpenApiParameter("doctor_id", type=int, description="ID lekarza"),
+            OpenApiParameter("office_id", type=int, description="ID gabinetu", required=False),
+            OpenApiParameter("interval", type=int, description="Interwał czasu w minutach (domyślnie 15)", default=15),
+            OpenApiParameter("start_date", type=str, description="Data początkowa w formacie YYYY-MM-DD."),
+            OpenApiParameter("end_date", type=str, description="Data końcowa w formacie YYYY-MM-DD."),
+        ],
+        responses={200: "Lista dostępnych slotów czasowych"}
+    )
     def post(self, request):
         data = request.data
         doctor_id = data.get('doctor_id')
@@ -148,6 +161,15 @@ class AvailableAssistantsView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
 
+    @extend_schema(
+        description="Sprawdza dostępnych asystentów w danym przedziale czasowym.",
+        parameters=[
+            OpenApiParameter("date", type=str, description="Data w formacie YYYY-MM-DD."),
+            OpenApiParameter("start_time", type=str, description="Godzina początkowa w formacie HH:MM."),
+            OpenApiParameter("end_time", type=str, description="Godzina końcowa w formacie HH:MM."),
+        ],
+        responses={200: "Lista dostępnych asystentów"}
+    )
     def post(self, request):
         data = request.data
         date_str = data.get('date')
@@ -205,6 +227,21 @@ class AvailabilityCheckView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
 
+
+    @extend_schema(
+        description="Sprawdza dostępność zasobów w zadanym przedziale czasowym.",
+        parameters=[
+            OpenApiParameter("start_date", type=str, description="Data początkowa w formacie YYYY-MM-DD."),
+            OpenApiParameter("end_date", type=str, description="Data końcowa w formacie YYYY-MM-DD."),
+            OpenApiParameter("interval_days", type=int, description="Interwał dni pomiędzy sprawdzeniami dostępności."),
+            OpenApiParameter("start_time", type=str, description="Godzina początkowa w formacie HH:MM."),
+            OpenApiParameter("end_time", type=str, description="Godzina końcowa w formacie HH:MM."),
+            OpenApiParameter("doctor_id", type=int, description="ID lekarza", required=False),
+            OpenApiParameter("assistant_id", type=int, description="ID asystenta", required=False),
+            OpenApiParameter("office_id", type=int, description="ID gabinetu", required=False),
+        ],
+        responses={200: "Lista dostępności zasobów"}
+    )
     def post(self, request):
         data = request.data
         start_date_str = data.get('start_date')

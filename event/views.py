@@ -10,6 +10,7 @@ from rest_framework.parsers import JSONParser
 
 from .models import Event, Office, Absence, VisitType, Tags
 from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer
+from .filters import EventFilter
 from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from datetime import timedelta, datetime
@@ -23,7 +24,7 @@ class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
     permission_classes = [HasProfilePermission]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['doctor', 'office', 'patient', 'date']
+    filterset_class = EventFilter
     
 
 class TimeSlotView(APIView):

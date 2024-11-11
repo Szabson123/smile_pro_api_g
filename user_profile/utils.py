@@ -44,7 +44,6 @@ def mark_occupied_slots(slots, appointments, other_appointments, office):
         slot_end_time = slot['end'].time()
         slot_occupied = False
 
-        # Sprawdź, czy slot jest zajęty przez wizytę lekarza
         for appointment in appointments:
             if appointment.start_time < slot_end_time and appointment.end_time > slot_start_time:
                 slot['status'] = 'zajęty'
@@ -55,7 +54,6 @@ def mark_occupied_slots(slots, appointments, other_appointments, office):
         if slot_occupied:
             continue
 
-        # Sprawdź, czy slot jest zajęty przez inne wizyty w gabinecie
         if office:
             for appointment in other_appointments:
                 if appointment.start_time < slot_end_time and appointment.end_time > slot_start_time:

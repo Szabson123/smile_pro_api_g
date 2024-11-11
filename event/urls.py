@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import EventViewSet, TimeSlotView, AbsenceViewSet, EmployeeScheduleViewSet, OfficeViewSet, VisitTypeViewSet, TagsViewSet
+from .views import EventViewSet, TimeSlotView, AbsenceViewSet, EmployeeScheduleViewSet, OfficeViewSet, VisitTypeViewSet, TagsViewSet, AvailableAssistantsView
 
 router = DefaultRouter()
 router.register(r'events', EventViewSet, basename='events')
@@ -13,4 +13,5 @@ router.register(r'viewset', VisitTypeViewSet, basename='visittype')
 urlpatterns = [
     path('', include(router.urls)),
     path('time-slots/', TimeSlotView.as_view(), name='time-slots'),
+    path('available-assistants/', AvailableAssistantsView.as_view(), name='available-assistants'),
 ]

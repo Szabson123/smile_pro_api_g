@@ -14,6 +14,7 @@ from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from datetime import timedelta, datetime
 
+from user_profile.serializers import ProfileCentralUserSerializer
 from user_profile.utils import generate_daily_time_slots, mark_occupied_slots
 
 
@@ -141,3 +142,60 @@ class VisitTypeViewSet(viewsets.ModelViewSet):
     queryset = VisitType.objects.all()
     serializer_class = VisitTypeSerializer
     permission_classes = [HasProfilePermission]
+
+
+class AvailableAssistantsView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser]
+
+    def post(self, request):
+        data = request.data
+        date_str = data.get('date')
+        start_time_str = data.get('start_time')
+        end_time_str = data.get('end_time')
+
+        if not all([date_str, start_time_str, end_time_str]):
+            return Response({'error': 'Brak wymaganych parametrów.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            start_time = datetime.strptime(start_time_str, '%H:%M').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M').time()
+        except ValueError:
+            return Response({'error': 'Nieprawidłowy format godziny. Użyj HH:MM.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if start_time >= end_time:
+            return Response({'error': 'Godzina początkowa musi być wcześniejsza niż godzina końcowa.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        assistants = ProfileCentralUser.objects.filter(role='assistant')
+
+        available_assistants = []
+
+        for assistant in assistants:
+            day_num = date.weekday()
+            try:
+                schedule = EmployeeSchedule.objects.get(employee=assistant, day_num=day_num)
+            except EmployeeSchedule.DoesNotExist:
+                continue
+
+            if start_time < schedule.start_time or end_time > schedule.end_time:
+                continue 
+
+            conflicting_events = Event.objects.filter(
+                doctor=assistant,
+                date=date,
+                start_time__lt=end_time,
+                end_time__gt=start_time
+            )
+
+            if conflicting_events.exists():
+                continue  
+
+            available_assistants.append(assistant)
+
+        serializer = ProfileCentralUserSerializer(available_assistants, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

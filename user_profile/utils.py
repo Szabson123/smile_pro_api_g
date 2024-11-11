@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta
-from user_profile.models import DoctorSchedule
+from user_profile.models import EmployeeSchedule
 from event.models import Event, PlanChange
 
+
 def generate_daily_time_slots(doctor, date, interval_minutes):
+    if doctor.role != 'doctor':
+        return []
+
     try:
         plan_change = PlanChange.objects.get(doctor=doctor, date=date)
         start_time = plan_change.start_time
@@ -10,11 +14,11 @@ def generate_daily_time_slots(doctor, date, interval_minutes):
     except PlanChange.DoesNotExist:
         day_num = date.weekday()
         try:
-            schedule = DoctorSchedule.objects.get(doctor=doctor, day_num=day_num)
+            schedule = EmployeeSchedule.objects.get(employee=doctor, day_num=day_num)
             start_time = schedule.start_time
             end_time = schedule.end_time
-        except DoctorSchedule.DoesNotExist:
-            return []  
+        except EmployeeSchedule.DoesNotExist:
+            return []
 
     start_datetime = datetime.combine(date, start_time)
     end_datetime = datetime.combine(date, end_time)
@@ -33,17 +37,14 @@ def generate_daily_time_slots(doctor, date, interval_minutes):
 
     return slots
 
+
 def mark_occupied_slots(slots, appointments, other_appointments, office):
-    slot_times = [(slot['start'].time(), slot['end'].time()) for slot in slots]
-
-    appointment_times = set((appointment.start_time, appointment.end_time) for appointment in appointments)
-    other_appointment_times = set((appointment.start_time, appointment.end_time) for appointment in other_appointments)
-
     for slot in slots:
         slot_start_time = slot['start'].time()
         slot_end_time = slot['end'].time()
         slot_occupied = False
 
+        # Sprawdź, czy slot jest zajęty przez wizytę lekarza
         for appointment in appointments:
             if appointment.start_time < slot_end_time and appointment.end_time > slot_start_time:
                 slot['status'] = 'zajęty'
@@ -54,12 +55,13 @@ def mark_occupied_slots(slots, appointments, other_appointments, office):
         if slot_occupied:
             continue
 
+        # Sprawdź, czy slot jest zajęty przez inne wizyty w gabinecie
         if office:
             for appointment in other_appointments:
                 if appointment.start_time < slot_end_time and appointment.end_time > slot_start_time:
-                    occupied_by_profile = appointment.doctor
+                    occupied_by_doctor = appointment.doctor
                     slot['status'] = 'zajęty'
-                    slot['occupied_by'] = f"{occupied_by_profile.name} {occupied_by_profile.surname}"
+                    slot['occupied_by'] = f"{occupied_by_doctor.name} {occupied_by_doctor.surname}"
                     slot_occupied = True
                     break
         else:

@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 
 from .models import Event, Office, Absence, VisitType, Tags
-from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer
-from user_profile.models import ProfileCentralUser, DoctorSchedule
+from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer
+from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from datetime import timedelta, datetime
 
@@ -32,7 +32,7 @@ class TimeSlotView(APIView):
     def post(self, request):
         data = request.data
         doctor_id = data.get('doctor_id')
-        office_id = data.get('office_id')  
+        office_id = data.get('office_id')
         interval_minutes = data.get('interval', 15)
         start_date_str = data.get('start_date')
         end_date_str = data.get('end_date')
@@ -46,7 +46,7 @@ class TimeSlotView(APIView):
                 raise ValueError
         except ValueError:
             return Response({'error': 'Nieprawidłowa wartość interwału.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
@@ -57,10 +57,11 @@ class TimeSlotView(APIView):
 
         try:
             doctor = ProfileCentralUser.objects.get(id=doctor_id)
-            if doctor.role != 'doctor':
-                return Response({'error': 'Użytkownik nie jest lekarzem.'}, status=status.HTTP_400_BAD_REQUEST)
         except ProfileCentralUser.DoesNotExist:
             return Response({'error': 'Nie znaleziono lekarza.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if doctor.role != 'doctor':
+            return Response({'error': 'Sloty czasowe mogą być generowane tylko dla lekarzy.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if office_id:
             try:
@@ -69,11 +70,16 @@ class TimeSlotView(APIView):
                 return Response({'error': 'Nie znaleziono gabinetu.'}, status=status.HTTP_404_NOT_FOUND)
         else:
             office = None
+
         slots = get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office)
 
         return Response(slots, status=status.HTTP_200_OK)
 
+
 def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office):
+    if doctor.role != 'doctor':
+        return []
+
     slots = []
     current_date = start_date
     delta = timedelta(days=1)
@@ -82,7 +88,7 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
         daily_slots = generate_daily_time_slots(doctor, current_date, interval_minutes)
         if not daily_slots:
             current_date += delta
-            continue  
+            continue
 
         appointments = Event.objects.filter(
             doctor=doctor,
@@ -100,7 +106,9 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
         daily_slots = mark_occupied_slots(daily_slots, appointments, other_appointments, office)
         slots.extend(daily_slots)
         current_date += delta
+
     return slots
+
 
 
 class AbsenceViewSet(viewsets.ModelViewSet):
@@ -111,9 +119,9 @@ class AbsenceViewSet(viewsets.ModelViewSet):
     filterset_fields = ['profile']
 
 
-class DoctorScheduleViewSet(viewsets.ModelViewSet):
-    queryset = DoctorSchedule.objects.all()
-    serializer_class = DoctorScheduleSerializer
+class EmployeeScheduleViewSet(viewsets.ModelViewSet):
+    queryset = EmployeeSchedule.objects.all()
+    serializer_class = EmployeeScheduleSerializer
     permission_classes = [HasProfilePermission]
 
 

@@ -7,6 +7,8 @@ UserRoles = [
     ('user', 'User'),
     ('admin', 'Admin'),
     ('doctor', 'Doctor'),
+    ('assistant', 'Assistant'),
+    ('reception', 'Reception'),
     ('none', 'None') 
 ]
 
@@ -42,8 +44,8 @@ class ProfileCentralUser(models.Model):
         return f'Profile for {self.user.email}'
     
 
-class DoctorSchedule(models.Model):
-    doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
-    day_num = models.IntegerField(default=8)
+class EmployeeSchedule(models.Model):
+    employee = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
+    day_num = models.IntegerField()
     start_time = models.TimeField()
     end_time = models.TimeField()

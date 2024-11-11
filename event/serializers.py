@@ -1,8 +1,9 @@
 from rest_framework import serializers
 
 from .models import Event, Absence, Office, VisitType, Tags
-from user_profile.models import DoctorSchedule, ProfileCentralUser
+from user_profile.models import EmployeeSchedule, ProfileCentralUser
 from patients.models import Patient
+
 
 class EventSerializer(serializers.ModelSerializer):
     doctor_id = serializers.PrimaryKeyRelatedField(
@@ -87,9 +88,9 @@ class EventSerializer(serializers.ModelSerializer):
     def is_doctor_available(self, doctor, date, start_time, end_time):
         day_num = date.weekday()
         try:
-            schedule = DoctorSchedule.objects.get(doctor=doctor, day_num=day_num)
-        except DoctorSchedule.DoesNotExist:
-            return False 
+            schedule = EmployeeSchedule.objects.get(employee=doctor, day_num=day_num)
+        except EmployeeSchedule.DoesNotExist:
+            return False  # Lekarz nie pracuje w tym dniu
 
         if start_time < schedule.start_time or end_time > schedule.end_time:
             return False
@@ -115,6 +116,7 @@ class EventSerializer(serializers.ModelSerializer):
             date=date,
             start_time__lt=end_time,
             end_time__gt=start_time
+            
         )
 
         if self.instance:
@@ -153,10 +155,10 @@ class AbsenceSerializer(serializers.ModelSerializer):
         return obj.profile.id 
 
 
-class DoctorScheduleSerializer(serializers.ModelSerializer):
+class EmployeeScheduleSerializer(serializers.ModelSerializer):
     doctor_id = serializers.CharField(source='doctor')
     class Meta:
-        model = DoctorSchedule
+        model = EmployeeSchedule
         fields = ['doctor_id', 'day_num', 'start_time', 'end_time']
 
 

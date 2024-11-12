@@ -24,6 +24,12 @@ class EventSerializer(serializers.ModelSerializer):
     end_date = serializers.DateField(write_only=True, required=False)
     interval_days = serializers.IntegerField(write_only=True, required=False)
 
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tags.objects.all(),
+        many=True,
+        required=False
+    )
+
     class Meta:
         model = Event
         fields = [
@@ -106,6 +112,7 @@ class EventSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        tags = validated_data.pop('tags', [])
         is_rep = validated_data.pop('is_rep', False)
         rep_id = None
 
@@ -137,10 +144,15 @@ class EventSerializer(serializers.ModelSerializer):
 
                 event = Event.objects.create(**event_data)
                 created_events.append(event)
+                if tags:
+                    event.tags.set(tags)
+                created_events.append(event)
 
             return created_events
         else:
             event = Event.objects.create(**validated_data)
+            if tags:
+                event.tags.set(tags)
             return event
 
 class AbsenceSerializer(serializers.ModelSerializer):

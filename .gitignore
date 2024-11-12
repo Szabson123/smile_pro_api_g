@@ -1,6 +1,6 @@
 venv/
 /static
-
+institution/signals.py
 
 *.pyc
 __pycache__/

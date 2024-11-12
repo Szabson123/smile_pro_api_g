@@ -23,6 +23,7 @@ SHARED_APPS = [
     'drf_spectacular',
     'institution',
     'custom_user',
+    'corsheaders',
 ]
 
 TENANT_APPS = [
@@ -45,6 +46,7 @@ INSTALLED_APPS = SHARED_APPS + [
 
 MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -55,6 +57,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'SmilePro.urls'
+CORS_ALLOW_ALL_ORIGINS = True
 
 TEMPLATES = [
     {

@@ -46,6 +46,7 @@ def mark_occupied_slots(slots, appointments, other_appointments, office):
 
         for appointment in appointments:
             if appointment.start_time < slot_end_time and appointment.end_time > slot_start_time:
+                occupied_by_doctor = appointment.doctor
                 slot['status'] = 'zajęty'
                 slot['occupied_by'] = f"{occupied_by_doctor.name} {occupied_by_doctor.surname}"
                 slot_occupied = True

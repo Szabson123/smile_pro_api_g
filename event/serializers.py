@@ -24,19 +24,6 @@ class EventSerializer(serializers.ModelSerializer):
     end_date = serializers.DateField(write_only=True, required=False)
     interval_days = serializers.IntegerField(write_only=True, required=False)
 
-    visit_type = serializers.SlugRelatedField(
-        queryset=VisitType.objects.all(),
-        slug_field='name',
-        required=False,
-        allow_null=True
-    )
-    tags = serializers.SlugRelatedField(
-        many=True,
-        queryset=Tags.objects.all(),
-        slug_field='name',
-        required=False
-    )
-
     class Meta:
         model = Event
         fields = [

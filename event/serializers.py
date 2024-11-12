@@ -27,7 +27,7 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = [
-            'id', 'name', 'doctor_id', 'office_id', 'assistant_id', 'patient_id',
+            'id', 'doctor_id', 'office_id', 'assistant_id', 'patient_id',
             'doctor', 'office', 'assistant', 'patient', 'date', 'start_time',
             'end_time', 'cost', 'visit_type', 'tags', 'description',
             'is_rep', 'rep_id', 'end_date', 'interval_days'
@@ -179,3 +179,21 @@ class TagsSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'icon', 'color']
 
 
+# addition optimalization
+
+class EventCalendarSerializer(serializers.ModelSerializer):
+    doctor_name = serializers.SerializerMethodField()
+    office_name = serializers.CharField(source='office.name', allow_null=True)
+    visit_type_name = serializers.CharField(source='visit_type.name', allow_null=True)
+
+    class Meta:
+        model = Event
+        fields = ['id', 'doctor_name', 'office_name', 'start_time', 'end_time', 'date', 'visit_type_name']
+
+    def get_doctor_name(self, obj):
+        if obj.doctor:
+            name = obj.doctor.name or ""
+            surname = obj.doctor.surname or ""
+            full_name = f"{name} {surname}".strip()
+            return full_name if full_name else "Nieznany lekarz"
+        return "Nieznany lekarz"

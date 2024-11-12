@@ -19,7 +19,6 @@ class Tags(models.Model):
 
 
 class Event(models.Model):
-    name = models.CharField(max_length=255, null=True, blank=True)
     doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     date = models.DateField(default=None)
     office = models.ForeignKey(Office, on_delete=models.CASCADE, blank=True, null=True)

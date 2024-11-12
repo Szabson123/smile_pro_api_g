@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 
 from .models import Event, Office, Absence, VisitType, Tags
-from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer
+from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer
 from .filters import EventFilter
 from .utlis import *
 from user_profile.models import ProfileCentralUser, EmployeeSchedule
@@ -20,13 +20,28 @@ from user_profile.serializers import ProfileCentralUserSerializer
 from user_profile.utils import generate_daily_time_slots, mark_occupied_slots
 
 
-class EventViewSet(viewsets.ModelViewSet):
-    queryset = Event.objects.all()
+class EventViewSet(mixins.CreateModelMixin,
+                  mixins.UpdateModelMixin,
+                  mixins.DestroyModelMixin,
+                  mixins.RetrieveModelMixin,
+                  viewsets.GenericViewSet):
+    queryset = Event.objects.select_related('doctor', 'office', 'assistant', 'patient').all()
     serializer_class = EventSerializer
     permission_classes = [HasProfilePermission]
     filter_backends = [DjangoFilterBackend]
     filterset_class = EventFilter
-    
+
+
+class EventCalendarViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet do wyświetlania listy eventów w kalendarzu.
+    """
+    queryset = Event.objects.select_related('doctor', 'office').all()
+    serializer_class = EventCalendarSerializer
+    permission_classes = [HasProfilePermission]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = EventFilter
+
 
 class TimeSlotView(APIView):
     permission_classes = [IsAuthenticated, HasProfilePermission]

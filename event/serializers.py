@@ -133,6 +133,7 @@ class EventSerializer(serializers.ModelSerializer):
                 event_data = validated_data.copy()
                 event_data['date'] = event_date
                 event_data['rep_id'] = rep_id
+                event_data['is_rep'] = True
 
                 event = Event.objects.create(**event_data)
                 created_events.append(event)

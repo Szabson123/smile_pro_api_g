@@ -33,6 +33,12 @@ class Event(models.Model):
     is_rep = models.BooleanField(default=False)
     rep_id = models.IntegerField(default=0)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['doctor', 'date']),
+            models.Index(fields=['office', 'date']),
+        ]
+
 
 TypeFree = [
     ('zwolnienie', 'Zwolnienie'),

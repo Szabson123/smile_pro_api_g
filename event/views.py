@@ -1,5 +1,5 @@
 from drf_spectacular.utils import extend_schema, OpenApiParameter
-
+from collections import defaultdict
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins
 
@@ -8,10 +8,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 
-from .models import Event, Office, Absence, VisitType, Tags
-from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer
+from .models import Event, Office, Absence, VisitType, Tags, PlanChange
+from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer, TimeSlotRequestSerializer, TimeSlotSerializer
 from .filters import EventFilter
 from .utlis import *
+from .renderers import ORJSONRenderer
+
 from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from datetime import timedelta, datetime
@@ -46,43 +48,27 @@ class EventCalendarViewSet(viewsets.ReadOnlyModelViewSet):
 class TimeSlotView(APIView):
     permission_classes = [IsAuthenticated, HasProfilePermission]
     parser_classes = [JSONParser]
+    renderer_classes = [ORJSONRenderer]
 
     @extend_schema(
         description="Generuje dostępne sloty czasowe dla lekarza w zadanym przedziale czasowym.",
-        parameters=[
-            OpenApiParameter("doctor_id", type=int, description="ID lekarza"),
-            OpenApiParameter("office_id", type=int, description="ID gabinetu", required=False),
-            OpenApiParameter("interval", type=int, description="Interwał czasu w minutach (domyślnie 15)", default=15),
-            OpenApiParameter("start_date", type=str, description="Data początkowa w formacie YYYY-MM-DD."),
-            OpenApiParameter("end_date", type=str, description="Data końcowa w formacie YYYY-MM-DD."),
-        ],
-        responses={200: "Lista dostępnych slotów czasowych"}
+        request=TimeSlotRequestSerializer,
+        responses={200: TimeSlotSerializer(many=True)}
     )
     def post(self, request):
-        data = request.data
-        doctor_id = data.get('doctor_id')
-        office_id = data.get('office_id')
-        interval_minutes = data.get('interval', 15)
-        start_date_str = data.get('start_date')
-        end_date_str = data.get('end_date')
+        serializer = TimeSlotRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        validated_data = serializer.validated_data
+        doctor_id = validated_data['doctor_id']
+        office_id = validated_data.get('office_id')
+        interval_minutes = validated_data['interval']
+        start_date = validated_data['start_date']
+        end_date = validated_data['end_date']
 
-        if not all([doctor_id, start_date_str, end_date_str]):
-            return Response({'error': 'Brak wymaganych parametrów.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            interval_minutes = int(interval_minutes)
-            if interval_minutes <= 0:
-                raise ValueError
-        except ValueError:
-            return Response({'error': 'Nieprawidłowa wartość interwału.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            if start_date > end_date:
-                return Response({'error': 'Data początkowa musi być wcześniejsza lub równa dacie końcowej.'}, status=status.HTTP_400_BAD_REQUEST)
-        except ValueError:
-            return Response({'error': 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        if start_date > end_date:
+            return Response({'error': 'Data początkowa musi być wcześniejsza lub równa dacie końcowej.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             doctor = ProfileCentralUser.objects.get(id=doctor_id)
@@ -92,17 +78,17 @@ class TimeSlotView(APIView):
         if doctor.role != 'doctor':
             return Response({'error': 'Sloty czasowe mogą być generowane tylko dla lekarzy.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        office = None
         if office_id:
             try:
                 office = Office.objects.get(id=office_id)
             except Office.DoesNotExist:
                 return Response({'error': 'Nie znaleziono gabinetu.'}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            office = None
 
+        # Generuj sloty
         slots = get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office)
-
-        return Response(slots, status=status.HTTP_200_OK)
+        serialized_slots = TimeSlotSerializer(slots, many=True)
+        return Response(serialized_slots.data, status=status.HTTP_200_OK)
 
 
 def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office):
@@ -110,33 +96,115 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
         return []
 
     slots = []
-    current_date = start_date
     delta = timedelta(days=1)
+    interval_delta = timedelta(minutes=interval_minutes)
+    date_range = (start_date, end_date)
 
+    # Fetch doctor's appointments
+    doctor_appointments = Event.objects.filter(
+        doctor=doctor,
+        date__range=date_range
+    ).values('date', 'start_time', 'end_time')
+
+    # Fetch other appointments in the office if office is provided
+    if office:
+        other_appointments = Event.objects.filter(
+            date__range=date_range,
+            office=office
+        ).exclude(doctor=doctor).values('date', 'start_time', 'end_time')
+    else:
+        other_appointments = []
+
+    # Group appointments by date
+    busy_intervals_by_date = defaultdict(list)
+    for appt in doctor_appointments:
+        busy_intervals_by_date[appt['date']].append((appt['start_time'], appt['end_time']))
+
+    for appt in other_appointments:
+        busy_intervals_by_date[appt['date']].append((appt['start_time'], appt['end_time']))
+
+    # Merge overlapping intervals for each day
+    for date in busy_intervals_by_date:
+        intervals = sorted(busy_intervals_by_date[date])
+        merged_intervals = [intervals[0]]
+        for current in intervals[1:]:
+            last_start, last_end = merged_intervals[-1]
+            current_start, current_end = current
+            if current_start <= last_end:
+                merged_intervals[-1] = (last_start, max(last_end, current_end))
+            else:
+                merged_intervals.append(current)
+        busy_intervals_by_date[date] = merged_intervals
+
+    # Fetch plan changes and schedules
+    plan_changes = PlanChange.objects.filter(
+        doctor=doctor,
+        date__range=date_range
+    ).values('date', 'start_time', 'end_time')
+    plan_changes_by_date = {pc['date']: pc for pc in plan_changes}
+
+    schedules = EmployeeSchedule.objects.filter(
+        employee=doctor
+    ).values('day_num', 'start_time', 'end_time')
+    schedules_by_day = {s['day_num']: s for s in schedules}
+
+    current_date = start_date
     while current_date <= end_date:
-        daily_slots = generate_daily_time_slots(doctor, current_date, interval_minutes)
-        if not daily_slots:
-            current_date += delta
-            continue
-
-        appointments = Event.objects.filter(
-            doctor=doctor,
-            date=current_date
-        ).select_related('doctor', 'office')
-
-        if office:
-            other_appointments = Event.objects.filter(
-                date=current_date,
-                office=office
-            ).exclude(doctor=doctor).select_related('doctor', 'office')
+        if current_date in plan_changes_by_date:
+            working_hours = [(plan_changes_by_date[current_date]['start_time'], plan_changes_by_date[current_date]['end_time'])]
         else:
-            other_appointments = []
+            day_num = current_date.weekday()
+            schedule = schedules_by_day.get(day_num)
+            if schedule:
+                working_hours = [(schedule['start_time'], schedule['end_time'])]
+            else:
+                current_date += delta
+                continue
 
-        daily_slots = mark_occupied_slots(daily_slots, appointments, other_appointments, office)
-        slots.extend(daily_slots)
+        # Get busy intervals for the current date
+        busy_intervals = busy_intervals_by_date.get(current_date, [])
+
+        # Subtract busy intervals from working hours to get free intervals
+        free_intervals = subtract_intervals(working_hours, busy_intervals)
+
+        # Generate slots from free intervals
+        for start_time, end_time in free_intervals:
+            start_datetime = datetime.combine(current_date, start_time)
+            end_datetime = datetime.combine(current_date, end_time)
+            while start_datetime + interval_delta <= end_datetime:
+                slots.append({
+                    'start': start_datetime,
+                    'end': start_datetime + interval_delta,
+                    'status': 'wolny',
+                    'occupied_by': None,
+                })
+                start_datetime += interval_delta
+
         current_date += delta
 
     return slots
+
+def subtract_intervals(working_hours, busy_intervals):
+    # Subtract busy intervals from working hours to get free intervals
+    free_intervals = []
+    for work_start, work_end in working_hours:
+        temp_intervals = [(work_start, work_end)]
+        for busy_start, busy_end in busy_intervals:
+            new_intervals = []
+            for interval_start, interval_end in temp_intervals:
+                # No overlap
+                if busy_end <= interval_start or busy_start >= interval_end:
+                    new_intervals.append((interval_start, interval_end))
+                else:
+                    # Overlap exists
+                    if interval_start < busy_start:
+                        new_intervals.append((interval_start, busy_start))
+                    if busy_end < interval_end:
+                        new_intervals.append((busy_end, interval_end))
+            temp_intervals = new_intervals
+        free_intervals.extend(temp_intervals)
+    return free_intervals
+
 
 
 

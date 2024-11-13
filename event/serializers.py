@@ -209,3 +209,18 @@ class EventCalendarSerializer(serializers.ModelSerializer):
             full_name = f"{name} {surname}".strip()
             return full_name if full_name else "Nieznany lekarz"
         return "Nieznany lekarz"
+    
+
+class TimeSlotRequestSerializer(serializers.Serializer):
+    doctor_id = serializers.IntegerField()
+    office_id = serializers.IntegerField(required=False, allow_null=True)
+    interval = serializers.IntegerField(min_value=1)
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+
+
+class TimeSlotSerializer(serializers.Serializer):
+    start = serializers.DateTimeField()
+    end = serializers.DateTimeField()
+    status = serializers.CharField()
+    occupied_by = serializers.CharField(allow_null=True, required=False)

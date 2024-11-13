@@ -2,6 +2,10 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from collections import defaultdict
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins
+from intervaltree import IntervalTree
+
+import datetime as dt
+from django.db.models import Q
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -50,11 +54,6 @@ class TimeSlotView(APIView):
     parser_classes = [JSONParser]
     renderer_classes = [ORJSONRenderer]
 
-    @extend_schema(
-        description="Generuje dostępne sloty czasowe dla lekarza w zadanym przedziale czasowym.",
-        request=TimeSlotRequestSerializer,
-        responses={200: TimeSlotSerializer(many=True)}
-    )
     def post(self, request):
         serializer = TimeSlotRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -85,7 +84,7 @@ class TimeSlotView(APIView):
             except Office.DoesNotExist:
                 return Response({'error': 'Nie znaleziono gabinetu.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Generuj sloty
+        # Generate time slots
         slots = get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office)
         serialized_slots = TimeSlotSerializer(slots, many=True)
         return Response(serialized_slots.data, status=status.HTTP_200_OK)
@@ -97,10 +96,12 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
 
     slots = []
     delta = timedelta(days=1)
-    interval_delta = timedelta(minutes=interval_minutes)
     date_range = (start_date, end_date)
 
-    # Fetch doctor's appointments
+    # Convert interval to minutes
+    interval_duration = interval_minutes
+
+    # Fetch doctor's appointments (they don't overlap)
     doctor_appointments = Event.objects.filter(
         doctor=doctor,
         date__range=date_range
@@ -115,73 +116,122 @@ def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes
     else:
         other_appointments = []
 
-    # Group appointments by date
-    busy_intervals_by_date = defaultdict(list)
+    # Group doctor's appointments by date (no need to merge)
+    doctor_busy_intervals_by_date = defaultdict(list)
     for appt in doctor_appointments:
-        busy_intervals_by_date[appt['date']].append((appt['start_time'], appt['end_time']))
+        doctor_busy_intervals_by_date[appt['date']].append((
+            time_to_minutes(appt['start_time']),
+            time_to_minutes(appt['end_time'])
+        ))
 
+    # Group and merge other appointments by date
+    other_busy_intervals_by_date = defaultdict(list)
     for appt in other_appointments:
-        busy_intervals_by_date[appt['date']].append((appt['start_time'], appt['end_time']))
+        other_busy_intervals_by_date[appt['date']].append((
+            time_to_minutes(appt['start_time']),
+            time_to_minutes(appt['end_time'])
+        ))
 
-    # Merge overlapping intervals for each day
-    for date in busy_intervals_by_date:
-        intervals = sorted(busy_intervals_by_date[date])
-        merged_intervals = [intervals[0]]
-        for current in intervals[1:]:
-            last_start, last_end = merged_intervals[-1]
-            current_start, current_end = current
-            if current_start <= last_end:
-                merged_intervals[-1] = (last_start, max(last_end, current_end))
-            else:
-                merged_intervals.append(current)
-        busy_intervals_by_date[date] = merged_intervals
+    for date in other_busy_intervals_by_date:
+        intervals = sorted(other_busy_intervals_by_date[date])
+        merged_intervals = merge_intervals(intervals)
+        other_busy_intervals_by_date[date] = merged_intervals
 
     # Fetch plan changes and schedules
     plan_changes = PlanChange.objects.filter(
         doctor=doctor,
         date__range=date_range
     ).values('date', 'start_time', 'end_time')
-    plan_changes_by_date = {pc['date']: pc for pc in plan_changes}
+    plan_changes_by_date = {pc['date']: (
+        time_to_minutes(pc['start_time']),
+        time_to_minutes(pc['end_time'])
+    ) for pc in plan_changes}
 
     schedules = EmployeeSchedule.objects.filter(
         employee=doctor
     ).values('day_num', 'start_time', 'end_time')
-    schedules_by_day = {s['day_num']: s for s in schedules}
+    schedules_by_day = {s['day_num']: (
+        time_to_minutes(s['start_time']),
+        time_to_minutes(s['end_time'])
+    ) for s in schedules}
 
     current_date = start_date
     while current_date <= end_date:
         if current_date in plan_changes_by_date:
-            working_hours = [(plan_changes_by_date[current_date]['start_time'], plan_changes_by_date[current_date]['end_time'])]
+            working_hours = [plan_changes_by_date[current_date]]
         else:
             day_num = current_date.weekday()
             schedule = schedules_by_day.get(day_num)
             if schedule:
-                working_hours = [(schedule['start_time'], schedule['end_time'])]
+                working_hours = [schedule]
             else:
                 current_date += delta
                 continue
 
         # Get busy intervals for the current date
-        busy_intervals = busy_intervals_by_date.get(current_date, [])
+        doctor_busy_intervals = doctor_busy_intervals_by_date.get(current_date, [])
+        other_busy_intervals = other_busy_intervals_by_date.get(current_date, [])
+
+        # Since doctor's appointments don't overlap, no need to merge doctor's busy intervals
+        # Combine busy intervals (doctor's and other's appointments)
+        combined_busy_intervals = doctor_busy_intervals + other_busy_intervals
+        if other_busy_intervals:
+            combined_busy_intervals = merge_intervals(combined_busy_intervals)
 
         # Subtract busy intervals from working hours to get free intervals
-        free_intervals = subtract_intervals(working_hours, busy_intervals)
+        free_intervals = subtract_intervals(working_hours, combined_busy_intervals)
 
         # Generate slots from free intervals
-        for start_time, end_time in free_intervals:
-            start_datetime = datetime.combine(current_date, start_time)
-            end_datetime = datetime.combine(current_date, end_time)
-            while start_datetime + interval_delta <= end_datetime:
-                slots.append({
-                    'start': start_datetime,
-                    'end': start_datetime + interval_delta,
-                    'status': 'wolny',
-                    'occupied_by': None,
-                })
-                start_datetime += interval_delta
+        slots.extend(generate_slots(free_intervals, current_date, interval_duration))
 
         current_date += delta
 
+    return slots
+
+def time_to_minutes(t):
+    return t.hour * 60 + t.minute
+
+def minutes_to_time(m):
+    return dt.time(m // 60, m % 60)
+
+def merge_intervals(intervals):
+    if not intervals:
+        return []
+    intervals.sort()
+    merged = [intervals[0]]
+    for current in intervals[1:]:
+        last_start, last_end = merged[-1]
+        current_start, current_end = current
+        if current_start <= last_end:
+            merged[-1] = (last_start, max(last_end, current_end))
+        else:
+            merged.append(current)
+    return merged
+
+def subtract_intervals(working_hours, busy_intervals):
+    tree = IntervalTree()
+    for start, end in working_hours:
+        tree[start:end] = 'free'
+    for start, end in busy_intervals:
+        tree.chop(start, end)
+    free_intervals = [(iv.begin, iv.end) for iv in sorted(tree)]
+    return free_intervals
+
+def generate_slots(free_intervals, current_date, interval_minutes):
+    slots = []
+    for start_min, end_min in free_intervals:
+        num_slots = (end_min - start_min) // interval_minutes
+        for i in range(num_slots):
+            slot_start_min = start_min + i * interval_minutes
+            slot_end_min = slot_start_min + interval_minutes
+            slot_start = datetime.combine(current_date, minutes_to_time(slot_start_min))
+            slot_end = datetime.combine(current_date, minutes_to_time(slot_end_min))
+            slots.append({
+                'start': slot_start,
+                'end': slot_end,
+                'status': 'wolny',
+                'occupied_by': None,
+            })
     return slots
 
 def subtract_intervals(working_hours, busy_intervals):

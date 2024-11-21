@@ -6,15 +6,23 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         user = self.user
 
-        # Get institutions associated with the user
-        user_institutions = UserInstitution.objects.filter(user=user)
+        user_institutions = UserInstitution.objects.filter(user=user).select_related('institution')
+        institutions = [ui.institution for ui in user_institutions]
 
-        domains = []
-        for user_institution in user_institutions:
-            institution = user_institution.institution
-            institution_domains = Domain.objects.filter(tenant=institution)
-            domains.extend([domain.domain for domain in institution_domains])
+        domains = Domain.objects.filter(tenant__in=institutions).select_related('tenant')
 
-        data['domains'] = list(set(domains))
+        institution_domain_map = {domain.tenant.id: domain.domain for domain in domains}
+
+        institutions_data = []
+        for institution in institutions:
+            domain = institution_domain_map.get(institution.id)
+            institution_data = {
+                'name': institution.name,
+                'address': institution.address,
+                'domain': domain,
+            }
+            institutions_data.append(institution_data)
+
+        data['institutions'] = institutions_data
         return data
 

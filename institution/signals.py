@@ -38,31 +38,10 @@ def handle_owner_user_change(sender, instance, **kwargs):
     old_owner_user = getattr(instance, '_owner_user_old', None)
 
     if central_user and old_owner_user != central_user:
-        # owner_user has been set or changed
         try:
-            # Create or get the UserInstitution mapping
-            user_institution, created_ui = UserInstitution.objects.get_or_create(
-                user=central_user,
-                institution=instance
-            )
-            if created_ui:
-                logger.info(f'UserInstitution created for {central_user.email}')
-            else:
-                logger.info(f'UserInstitution already exists for {central_user.email}')
+            UserInstitution.objects.get_or_create(user=central_user, institution=instance)
 
-            # Switch to tenant schema to create ProfileCentralUser
-            with tenant_context(instance):
-                profile, created_pc = ProfileCentralUser.objects.get_or_create(
-                    user=central_user,
-                    owner=True
-                )
-                if created_pc:
-                    logger.info(f'ProfileCentralUser created for {central_user.email}')
-                else:
-                    logger.info(f'ProfileCentralUser already exists for {central_user.email}')
         except Exception as e:
-            logger.error(f'Error creating UserInstitution or ProfileCentralUser: {e}')
-    else:
-        logger.info('No change in owner_user, or owner_user is None')
+            logger.error(f'Error handling owner_user change: {e}')
 
 

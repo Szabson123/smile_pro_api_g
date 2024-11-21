@@ -11,6 +11,8 @@ class Institution(TenantMixin):
     owner_user = models.ForeignKey(CentralUser, on_delete=models.SET_NULL, null=True, blank=True, default=None)
     auto_create_schema = True
     auto_drop_schema = False
+    address = models.CharField(max_length=255, default='', null=True, blank=True)
+    vat = models.CharField(max_length=255, default='', null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.schema_name:

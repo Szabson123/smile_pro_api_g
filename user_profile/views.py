@@ -6,8 +6,9 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
 from rest_framework.decorators import action
+from rest_framework.views import APIView
 
-from .serializers import ProfileCentralUserSerializer
+from .serializers import ProfileCentralUserSerializer, MeProfileSerializer
 from user_profile.serializers import EmployeeProfileSerializer
 from user_profile.models import ProfileCentralUser, UserRoles
 from user_profile.permissions import HasProfilePermission, IsOwnerOfInstitution
@@ -21,6 +22,13 @@ class ProfileListView(ListAPIView):
         
         return ProfileCentralUser.objects.all()
 
+
+class CurrentProfile(APIView):
+    permission_classes = [HasProfilePermission]
+
+    def get(self, request):
+        serializer = MeProfileSerializer(request.user, context={'request': request})
+        return Response(serializer.data)
 
 # Cały CRUD Związany z pracownikami 
 class EmployeeProfileViewSet(viewsets.ModelViewSet):

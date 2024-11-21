@@ -19,7 +19,7 @@ class ProfileCentralUser(models.Model):
     role = models.CharField(max_length=30, choices=UserRoles, default='none')
 
     # personal
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True, related_name='profile')
     name = models.CharField(max_length=255, default=None, blank=True, null=True)
     surname = models.CharField(max_length=255, default=None, blank=True, null=True)
     pesel = models.CharField(max_length=255, default=None, blank=True, null=True)

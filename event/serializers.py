@@ -112,6 +112,16 @@ class EventSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        if isinstance(validated_data, list):
+            events = []
+            for event_data in validated_data:
+                event = self.create_single_event(event_data)
+                events.append(event)
+            return events
+        else:
+            return self.create_single_event(validated_data)
+
+    def create_single_event(self, validated_data):
         tags = validated_data.pop('tags', [])
         is_rep = validated_data.pop('is_rep', False)
         rep_id = None
@@ -120,13 +130,13 @@ class EventSerializer(serializers.ModelSerializer):
             last_rep = Event.objects.aggregate(max_rep=Max('rep_id'))['max_rep'] or 0
             rep_id = last_rep + 1
 
-            date = validated_data.get('date', None)
+            date = validated_data.get('date')
             end_date = validated_data.pop('end_date', None)
             interval_days = validated_data.pop('interval_days', None)
 
             if not all([date, end_date, interval_days]):
                 raise serializers.ValidationError(
-                    "Dla powtarzających się wydarzeń wymagane są pola: date (data początkowa), end_date, interval_days."
+                    "For recurring events, 'date', 'end_date', and 'interval_days' are required."
                 )
 
             event_dates = []
@@ -143,17 +153,16 @@ class EventSerializer(serializers.ModelSerializer):
                 event_data['is_rep'] = True
 
                 event = Event.objects.create(**event_data)
-                created_events.append(event)
                 if tags:
                     event.tags.set(tags)
                 created_events.append(event)
-
-            return created_events
+            return created_events  # Return list of events
         else:
             event = Event.objects.create(**validated_data)
             if tags:
                 event.tags.set(tags)
-            return event
+            return event  # Return single event
+
 
 class AbsenceSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()

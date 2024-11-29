@@ -1,6 +1,7 @@
 from .models import Event
 from user_profile.models import EmployeeSchedule
 from collections import defaultdict
+from datetime import timedelta
 
 def get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office):
     if doctor.role != 'doctor':

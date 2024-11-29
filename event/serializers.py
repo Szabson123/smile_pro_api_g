@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 from .models import Event, Absence, Office, VisitType, Tags
 from .utlis import is_doctor_available, is_assistant_available, is_office_available, is_patient_available
+from .validators import validate_doctor_id, validate_office_id, validate_assistant_id, validate_patient_id, validate_dates, validate_times
+
 from user_profile.models import EmployeeSchedule, ProfileCentralUser
 from patients.models import Patient
 from django.db.models import Max
@@ -24,11 +26,7 @@ class EventSerializer(serializers.ModelSerializer):
     end_date = serializers.DateField(write_only=True, required=False)
     interval_days = serializers.IntegerField(write_only=True, required=False)
 
-    tags = serializers.PrimaryKeyRelatedField(
-        queryset=Tags.objects.all(),
-        many=True,
-        required=False
-    )
+    tags = serializers.PrimaryKeyRelatedField(queryset=Tags.objects.all(), many=True, required=False)
 
     class Meta:
         model = Event
@@ -51,43 +49,13 @@ class EventSerializer(serializers.ModelSerializer):
 
         is_rep = data.get('is_rep', False)
 
-        try:
-            doctor = ProfileCentralUser.objects.get(id=doctor_id, role='doctor')
-        except ProfileCentralUser.DoesNotExist:
-            raise serializers.ValidationError({"doctor_id": "Wybrany lekarz nie istnieje lub nie ma roli 'doctor'."})
+        doctor = validate_doctor_id(doctor_id)
+        office = validate_office_id(office_id)
+        assistant = validate_assistant_id(assistant_id)
+        patient = validate_patient_id(patient_id)
 
-        office = None
-        if office_id is not None:
-            try:
-                office = Office.objects.get(id=office_id)
-            except Office.DoesNotExist:
-                raise serializers.ValidationError({"office_id": "Wybrany gabinet nie istnieje."})
-
-        # Pobranie instancji asystenta
-        assistant = None
-        if assistant_id is not None:
-            try:
-                assistant = ProfileCentralUser.objects.get(id=assistant_id, role='assistant')
-            except ProfileCentralUser.DoesNotExist:
-                raise serializers.ValidationError({"assistant_id": "Wybrany asystent nie istnieje lub nie ma roli 'assistant'."})
-
-        # Pobranie instancji pacjenta
-        patient = None
-        if patient_id is not None:
-            try:
-                patient = Patient.objects.get(id=patient_id)
-            except Patient.DoesNotExist:
-                raise serializers.ValidationError({"patient_id": "Wybrany pacjent nie istnieje."})
-
-        if not all([date, start_time, end_time]):
-            raise serializers.ValidationError(
-                "Wymagane jest podanie daty, godziny rozpoczęcia i zakończenia."
-            )
-
-        if start_time >= end_time:
-            raise serializers.ValidationError(
-                {"end_time": "Godzina zakończenia musi być po godzinie rozpoczęcia."}
-            )
+        validate_dates(date, data.get('end_date'))
+        validate_times(start_time, end_time)
 
         exclude_event_id = self.instance.id if self.instance else None
 
@@ -112,16 +80,6 @@ class EventSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        if isinstance(validated_data, list):
-            events = []
-            for event_data in validated_data:
-                event = self.create_single_event(event_data)
-                events.append(event)
-            return events
-        else:
-            return self.create_single_event(validated_data)
-
-    def create_single_event(self, validated_data):
         tags = validated_data.pop('tags', [])
         is_rep = validated_data.pop('is_rep', False)
         rep_id = None
@@ -156,12 +114,13 @@ class EventSerializer(serializers.ModelSerializer):
                 if tags:
                     event.tags.set(tags)
                 created_events.append(event)
-            return created_events  # Return list of events
+
+            return created_events 
         else:
             event = Event.objects.create(**validated_data)
             if tags:
                 event.tags.set(tags)
-            return event  # Return single event
+            return event  
 
 
 class AbsenceSerializer(serializers.ModelSerializer):
@@ -200,8 +159,6 @@ class TagsSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'icon', 'color']
 
 
-# addition optimalization
-
 class EventCalendarSerializer(serializers.ModelSerializer):
     doctor_name = serializers.SerializerMethodField()
     office_name = serializers.CharField(source='office.name', allow_null=True)
@@ -219,13 +176,24 @@ class EventCalendarSerializer(serializers.ModelSerializer):
             return full_name if full_name else "Nieznany lekarz"
         return "Nieznany lekarz"
     
-
+    
 class TimeSlotRequestSerializer(serializers.Serializer):
     doctor_id = serializers.IntegerField()
     office_id = serializers.IntegerField(required=False, allow_null=True)
     interval = serializers.IntegerField(min_value=1)
     start_date = serializers.DateField()
     end_date = serializers.DateField()
+
+    def validate_doctor_id(self, value):
+        return validate_doctor_id(value)
+
+    def validate(self, attrs):
+        start_date = attrs.get('start_date')
+        end_date = attrs.get('end_date')
+        
+        validate_dates(start_date, end_date)
+        
+        return attrs
 
 
 class TimeSlotSerializer(serializers.Serializer):

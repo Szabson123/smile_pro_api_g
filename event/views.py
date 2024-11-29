@@ -1,26 +1,27 @@
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from collections import defaultdict
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status, mixins
 
+from rest_framework import viewsets, status, mixins
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
+from rest_framework.exceptions import ValidationError
 
 from .models import Event, Office, Absence, VisitType, Tags, PlanChange
 from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer, TimeSlotRequestSerializer, TimeSlotSerializer
 from .filters import EventFilter
 from .utlis import *
 from .renderers import ORJSONRenderer
+from .validators import validate_assistant_id, is_assistant_available, validate_doctor_id, is_doctor_available, is_office_available, validate_office_id, is_patient_available, validate_dates, validate_times
 
 from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
-from datetime import timedelta, datetime
-
 from user_profile.serializers import ProfileCentralUserSerializer
 from user_profile.utils import generate_daily_time_slots, mark_occupied_slots
 
+from datetime import timedelta, datetime
 
 class EventViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = Event.objects.select_related('doctor', 'office', 'assistant', 'patient').all()
@@ -49,6 +50,38 @@ class EventCalendarViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [HasProfilePermission]
     filter_backends = [DjangoFilterBackend]
     filterset_class = EventFilter
+
+
+class AbsenceViewSet(viewsets.ModelViewSet):
+    queryset = Absence.objects.all()
+    serializer_class = AbsenceSerializer
+    permission_classes = [HasProfilePermission]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['profile']
+
+
+class EmployeeScheduleViewSet(viewsets.ModelViewSet):
+    queryset = EmployeeSchedule.objects.all()
+    serializer_class = EmployeeScheduleSerializer
+    permission_classes = [HasProfilePermission]
+
+
+class OfficeViewSet(viewsets.ModelViewSet):
+    queryset = Office.objects.all()
+    serializer_class = OfficeSerializer
+    permission_classes = [HasProfilePermission]
+
+
+class TagsViewSet(viewsets.ModelViewSet):
+    queryset = Tags.objects.all()
+    serializer_class = TagsSerializer
+    permission_classes = [HasProfilePermission]
+
+
+class VisitTypeViewSet(viewsets.ModelViewSet):
+    queryset = VisitType.objects.all()
+    serializer_class = VisitTypeSerializer
+    permission_classes = [HasProfilePermission]
 
 
 class TimeSlotView(APIView):
@@ -84,53 +117,12 @@ class TimeSlotView(APIView):
         slots = get_time_slots_for_date_range(doctor_id, start_date, end_date, interval_minutes, office)
         serialized_slots = TimeSlotSerializer(slots, many=True)
         return Response(serialized_slots.data, status=status.HTTP_200_OK)
-
-
-class AbsenceViewSet(viewsets.ModelViewSet):
-    queryset = Absence.objects.all()
-    serializer_class = AbsenceSerializer
-    permission_classes = [HasProfilePermission]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['profile']
-
-
-class EmployeeScheduleViewSet(viewsets.ModelViewSet):
-    queryset = EmployeeSchedule.objects.all()
-    serializer_class = EmployeeScheduleSerializer
-    permission_classes = [HasProfilePermission]
-
-
-class OfficeViewSet(viewsets.ModelViewSet):
-    queryset = Office.objects.all()
-    serializer_class = OfficeSerializer
-    permission_classes = [HasProfilePermission]
-
-
-class TagsViewSet(viewsets.ModelViewSet):
-    queryset = Tags.objects.all()
-    serializer_class = TagsSerializer
-    permission_classes = [HasProfilePermission]
-
-
-class VisitTypeViewSet(viewsets.ModelViewSet):
-    queryset = VisitType.objects.all()
-    serializer_class = VisitTypeSerializer
-    permission_classes = [HasProfilePermission]
-
+    
 
 class AvailableAssistantsView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
 
-    @extend_schema(
-        description="Sprawdza dostępnych asystentów w danym przedziale czasowym.",
-        parameters=[
-            OpenApiParameter("date", type=str, description="Data w formacie YYYY-MM-DD."),
-            OpenApiParameter("start_time", type=str, description="Godzina początkowa w formacie HH:MM."),
-            OpenApiParameter("end_time", type=str, description="Godzina końcowa w formacie HH:MM."),
-        ],
-        responses={200: "Lista dostępnych asystentów"}
-    )
     def post(self, request):
         data = request.data
         date_str = data.get('date')
@@ -141,53 +133,44 @@ class AvailableAssistantsView(APIView):
             return Response({'error': 'Brak wymaganych parametrów.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return Response({'error': 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            start_time = datetime.strptime(start_time_str, '%H:%M').time()
-            end_time = datetime.strptime(end_time_str, '%H:%M').time()
-        except ValueError:
-            return Response({'error': 'Nieprawidłowy format godziny. Użyj HH:MM.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if start_time >= end_time:
-            return Response({'error': 'Godzina początkowa musi być wcześniejsza niż godzina końcowa.'}, status=status.HTTP_400_BAD_REQUEST)
+            validate_dates(date_str, date_str) 
+            validate_times(start_time_str, end_time_str)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         assistants = ProfileCentralUser.objects.filter(role='assistant')
 
         available_assistants = []
 
         for assistant in assistants:
-            day_num = date.weekday()
+            day_num = date_str.weekday()
+            
             try:
                 schedule = EmployeeSchedule.objects.get(employee=assistant, day_num=day_num)
             except EmployeeSchedule.DoesNotExist:
                 continue
 
-            if start_time < schedule.start_time or end_time > schedule.end_time:
-                continue 
+            if start_time_str < schedule.start_time or end_time_str > schedule.end_time:
+                continue
 
             conflicting_events = Event.objects.filter(
                 assistant=assistant,
-                date=date,
-                start_time__lt=end_time,
-                end_time__gt=start_time
+                date=date_str,
+                start_time__lt=end_time_str,
+                end_time__gt=start_time_str
             )
-
             if conflicting_events.exists():
-                continue  
-
+                continue
+            
             available_assistants.append(assistant)
-
+            
         serializer = ProfileCentralUserSerializer(available_assistants, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
 
-class AvailabilityCheckView(APIView):
+
+class CheckRepetitionEvents(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
-
 
     @extend_schema(
         description="Sprawdza dostępność zasobów w zadanym przedziale czasowym.",
@@ -220,10 +203,11 @@ class AvailabilityCheckView(APIView):
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-            if start_date > end_date:
-                return Response({'error': 'Data początkowa musi być wcześniejsza niż data końcowa.'}, status=status.HTTP_400_BAD_REQUEST)
+            validate_dates(start_date, end_date)
         except ValueError:
             return Response({'error': 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             interval_days = int(interval_days)
@@ -235,31 +219,32 @@ class AvailabilityCheckView(APIView):
         try:
             start_time = datetime.strptime(start_time_str, '%H:%M').time()
             end_time = datetime.strptime(end_time_str, '%H:%M').time()
-            if start_time >= end_time:
-                return Response({'error': 'Godzina rozpoczęcia musi być wcześniejsza niż godzina zakończenia.'}, status=status.HTTP_400_BAD_REQUEST)
+            validate_times(start_time, end_time)
         except ValueError:
             return Response({'error': 'Nieprawidłowy format godziny. Użyj HH:MM.'}, status=status.HTTP_400_BAD_REQUEST)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         doctor = None
         if doctor_id:
             try:
-                doctor = ProfileCentralUser.objects.get(id=doctor_id, role='doctor')
-            except ProfileCentralUser.DoesNotExist:
-                return Response({'error': 'Nie znaleziono lekarza o podanym ID.'}, status=status.HTTP_404_NOT_FOUND)
+                doctor = validate_doctor_id(doctor_id)
+            except ValidationError as e:
+                return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         assistant = None
         if assistant_id:
             try:
-                assistant = ProfileCentralUser.objects.get(id=assistant_id, role='assistant')
-            except ProfileCentralUser.DoesNotExist:
-                return Response({'error': 'Nie znaleziono asystenta o podanym ID.'}, status=status.HTTP_404_NOT_FOUND)
+                assistant = validate_assistant_id(assistant_id)
+            except ValidationError as e:
+                return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         office = None
         if office_id:
             try:
-                office = Office.objects.get(id=office_id)
-            except Office.DoesNotExist:
-                return Response({'error': 'Nie znaleziono gabinetu o podanym ID.'}, status=status.HTTP_404_NOT_FOUND)
+                office = validate_office_id(office_id)
+            except ValidationError as e:
+                return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         dates = []
         current_date = start_date

@@ -1,5 +1,4 @@
 from drf_spectacular.utils import extend_schema, OpenApiParameter
-from collections import defaultdict
 from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import viewsets, status, mixins

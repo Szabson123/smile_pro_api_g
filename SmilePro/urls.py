@@ -14,5 +14,5 @@ urlpatterns = [
     path('user/', include('custom_user.urls')),
     path('profiles/', include('user_profile.urls')),
     path('<uuid:branch_uuid>/events/', include('event.urls')),
-    path('patients/', include('patients.urls'))
+    path('<uuid:branch_uuid>/patients/', include('patients.urls'))
 ]

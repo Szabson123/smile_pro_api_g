@@ -46,31 +46,27 @@ class EventSerializer(serializers.ModelSerializer):
         start_time = data.get('start_time')
         end_time = data.get('end_time')
 
-        is_rep = data.get('is_rep', False)
+        exclude_event_id = self.instance.id if self.instance else None
 
         doctor = validate_doctor_id(doctor_id)
         office = validate_office_id(office_id)
         assistant = validate_assistant_id(assistant_id)
         patient = validate_patient_id(patient_id)
-
-        validate_dates(date, data.get('end_date'))
+        
         validate_times(start_time, end_time)
-
-        exclude_event_id = self.instance.id if self.instance else None
 
         if not is_doctor_available(doctor, date, start_time, end_time, exclude_event_id=exclude_event_id):
             raise serializers.ValidationError("Lekarz nie jest dostępny w podanym czasie.")
 
-        if office and not is_office_available(office, date, start_time, end_time, exclude_event_id=exclude_event_id):
+        if not is_office_available(office, date, start_time, end_time, exclude_event_id=exclude_event_id):
             raise serializers.ValidationError("Gabinet nie jest dostępny w podanym czasie.")
 
-        if assistant and not is_assistant_available(assistant, date, start_time, end_time, exclude_event_id=exclude_event_id):
+        if not is_assistant_available(assistant, date, start_time, end_time, exclude_event_id=exclude_event_id):
             raise serializers.ValidationError("Asystent nie jest dostępny w podanym czasie.")
 
-        if patient and not is_patient_available(patient, date, start_time, end_time, exclude_event_id=exclude_event_id):
+        if not is_patient_available(patient, date, start_time, end_time, exclude_event_id=exclude_event_id):
             raise serializers.ValidationError("Pacjent nie jest dostępny w podanym czasie.")
 
-        # Dodanie instancji do danych
         data['doctor'] = doctor
         data['office'] = office
         data['assistant'] = assistant
@@ -79,6 +75,37 @@ class EventSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        request = self.context['request']
+        branch_uuid = self.context['view'].kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+
+        # Sprawdzamy profil lekarza w tym branchu
+        try:
+            profile = validated_data['doctor'].user.profile.get(branch=branch)
+        except:
+            raise serializers.ValidationError("Nie masz profilu lub lekarz nie jest przypisany do tego branchu.")
+
+        validated_data['branch'] = branch
+
+        # Sprawdzenie czy wszystkie powiązane obiekty należą do tego samego branchu
+        doctor = validated_data['doctor']
+        office = validated_data.get('office')
+        assistant = validated_data.get('assistant')
+        patient = validated_data.get('patient')
+
+        # Lekarz już jest sprawdzony przez profil, ale można dodatkowo sprawdzić:
+        if doctor.branch != branch:
+            raise serializers.ValidationError("Wybrany lekarz nie należy do tego branchu.")
+
+        if office and office.branch != branch:
+            raise serializers.ValidationError("Wybrany gabinet nie należy do tego branchu.")
+
+        if assistant and assistant.branch != branch:
+            raise serializers.ValidationError("Wybrany asystent nie należy do tego branchu.")
+
+        if patient and patient.branch != branch:
+            raise serializers.ValidationError("Wybrany pacjent nie należy do tego branchu.")
+
         tags = validated_data.pop('tags', [])
         is_rep = validated_data.pop('is_rep', False)
         rep_id = None
@@ -114,12 +141,13 @@ class EventSerializer(serializers.ModelSerializer):
                     event.tags.set(tags)
                 created_events.append(event)
 
-            return created_events 
+            return created_events
         else:
             event = Event.objects.create(**validated_data)
             if tags:
                 event.tags.set(tags)
-            return event  
+            return event
+
 
 
 class AbsenceSerializer(serializers.ModelSerializer):

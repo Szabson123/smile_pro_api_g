@@ -88,6 +88,15 @@ class VisitTypeViewSet(viewsets.ModelViewSet):
     serializer_class = VisitTypeSerializer
     permission_classes = [HasProfilePermission]
 
+    def get_queryset(self):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return VisitType.objects.filter(branch__identyficator=branch_uuid)
+
+    def perform_create(self, serializer):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+        serializer.save(branch=branch)
+
 
 class TimeSlotView(APIView):
     permission_classes = [IsAuthenticated, HasProfilePermission]

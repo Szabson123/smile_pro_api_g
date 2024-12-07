@@ -4,22 +4,25 @@ from patients.models import Patient
 from branch.models import Branch
 
 class Office(models.Model):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='office', default=None)
     name = models.CharField(max_length=255)
 
 
 class VisitType(models.Model):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='visittype', default=None)
     name = models.CharField(max_length=255, unique=True)
     cost = models.DecimalField(decimal_places=2, max_digits=10)
 
 
 class Tags(models.Model):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='tags', default=None)
     name = models.CharField(max_length=255, unique=True)
     icon = models.CharField(max_length=255)
     color = models.CharField(max_length=255)
 
 
 class Event(models.Model):
-    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='events')
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='events', default=None)
     doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     date = models.DateField(default=None)
     office = models.ForeignKey(Office, on_delete=models.CASCADE, blank=True, null=True)
@@ -58,6 +61,7 @@ class Absence(models.Model):
 
 
 class PlanChange(models.Model):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='planchange', default=None)
     doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     date = models.DateField()
     start_time = models.TimeField()

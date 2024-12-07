@@ -1,7 +1,7 @@
 from django.db import models
 from user_profile.models import ProfileCentralUser
 from patients.models import Patient
-
+from branch.models import Branch
 
 class Office(models.Model):
     name = models.CharField(max_length=255)
@@ -19,6 +19,7 @@ class Tags(models.Model):
 
 
 class Event(models.Model):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='events')
     doctor = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     date = models.DateField(default=None)
     office = models.ForeignKey(Office, on_delete=models.CASCADE, blank=True, null=True)
@@ -48,6 +49,7 @@ TypeFree = [
 
 
 class Absence(models.Model):
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='absences', default=None)
     profile = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     start_date = models.DateField()
     end_date = models.DateField()

@@ -38,6 +38,7 @@ TENANT_APPS = [
     'user_profile',
     'event',
     'patients',
+    'branch',
 ]
 
 INSTALLED_APPS = SHARED_APPS + [

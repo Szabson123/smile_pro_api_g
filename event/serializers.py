@@ -1,14 +1,13 @@
 from rest_framework import serializers
 
 from .models import Event, Absence, Office, VisitType, Tags
-from .utlis import is_doctor_available, is_assistant_available, is_office_available, is_patient_available
-from .validators import validate_doctor_id, validate_office_id, validate_assistant_id, validate_patient_id, validate_dates, validate_times
+from .validators import validate_doctor_id, validate_office_id, validate_assistant_id, validate_patient_id, validate_dates, validate_times, is_doctor_available, is_office_available, is_assistant_available, is_patient_available
 
 from user_profile.models import EmployeeSchedule, ProfileCentralUser
 from patients.models import Patient
 from django.db.models import Max
 from datetime import timedelta
-
+from branch.models import Branch
 
 class EventSerializer(serializers.ModelSerializer):
     doctor_id = serializers.IntegerField(write_only=True, required=True)
@@ -124,21 +123,50 @@ class EventSerializer(serializers.ModelSerializer):
 
 
 class AbsenceSerializer(serializers.ModelSerializer):
-    profile = serializers.SerializerMethodField()
+    profile_id = serializers.PrimaryKeyRelatedField(read_only=True, source='profile')
 
     class Meta:
         model = Absence
-        fields = ['id', 'profile', 'start_date', 'end_date', 'type', 'reason']
+        fields = ['id', 'profile_id', 'start_date', 'end_date', 'type', 'reason']
 
-    def get_profile(self, obj):
-        return obj.profile.id 
+    def create(self, validated_data):
+        request = self.context['request']
+        branch_uuid = self.context['view'].kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+
+        try:
+            profile = ProfileCentralUser.objects.get(user=request.user, branch=branch)
+        except ProfileCentralUser.DoesNotExist:
+            raise serializers.ValidationError("Nie masz profilu w tym branchu.")
+
+        validated_data['branch'] = branch
+        validated_data['profile'] = profile
+
+        return super().create(validated_data)
+    
 
 
-class EmployeeScheduleSerializer(serializers.ModelSerializer):
-    doctor_id = serializers.CharField(source='doctor')
+class DoctorScheduleSerializer(serializers.ModelSerializer):
+    doctor_id = serializers.PrimaryKeyRelatedField(read_only=True, source='employee')
+
     class Meta:
         model = EmployeeSchedule
-        fields = ['doctor_id', 'day_num', 'start_time', 'end_time']
+        fields = ['id', 'doctor_id', 'day_num', 'start_time', 'end_time']
+
+    def create(self, validated_data):
+        request = self.context['request']
+        branch_uuid = self.context['view'].kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+
+        try:
+            profile = ProfileCentralUser.objects.get(user=request.user, branch=branch)
+        except ProfileCentralUser.DoesNotExist:
+            raise serializers.ValidationError("Nie masz profilu w tym branchu.")
+
+        validated_data['branch'] = branch
+        validated_data['employee'] = profile
+
+        return super().create(validated_data)
 
 
 class OfficeSerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from django_filters.rest_framework import DjangoFilterBackend
 
-from rest_framework import viewsets, status, mixins
+from rest_framework import viewsets, status, mixins, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -9,7 +9,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.exceptions import ValidationError
 
 from .models import Event, Office, Absence, VisitType, Tags, PlanChange
-from .serializers import EventSerializer, EmployeeScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer, TimeSlotRequestSerializer, TimeSlotSerializer
+from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer, TimeSlotRequestSerializer, TimeSlotSerializer
 from .filters import EventFilter
 from .utlis import *
 from .renderers import ORJSONRenderer
@@ -19,6 +19,7 @@ from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
 from user_profile.serializers import ProfileCentralUserSerializer
 from user_profile.utils import generate_daily_time_slots, mark_occupied_slots
+from branch.models import Branch
 
 from datetime import timedelta, datetime
 
@@ -52,17 +53,22 @@ class EventCalendarViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AbsenceViewSet(viewsets.ModelViewSet):
-    queryset = Absence.objects.all()
     serializer_class = AbsenceSerializer
     permission_classes = [HasProfilePermission]
-    filter_backends = [DjangoFilterBackend]
     filterset_fields = ['profile']
 
+    def get_queryset(self):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return Absence.objects.filter(branch__identyficator=branch_uuid)
+        
 
-class EmployeeScheduleViewSet(viewsets.ModelViewSet):
-    queryset = EmployeeSchedule.objects.all()
-    serializer_class = EmployeeScheduleSerializer
-    permission_classes = [HasProfilePermission]
+class DoctorScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = DoctorScheduleSerializer
+    permission_classes = [IsAuthenticated, HasProfilePermission]
+
+    def get_queryset(self):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return EmployeeSchedule.objects.filter(branch__identyficator=branch_uuid)
 
 
 class OfficeViewSet(viewsets.ModelViewSet):

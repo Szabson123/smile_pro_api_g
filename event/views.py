@@ -108,7 +108,7 @@ class TimeSlotView(APIView):
         request=TimeSlotRequestSerializer,
         responses={200: TimeSlotSerializer(many=True)}
     )
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         serializer = TimeSlotRequestSerializer(data=request.data)
         
         if not serializer.is_valid():
@@ -121,23 +121,46 @@ class TimeSlotView(APIView):
         start_date = validated_data['start_date']
         end_date = validated_data['end_date']
 
+        branch_uuid = self.kwargs.get('branch_uuid')
+        try:
+            branch = Branch.objects.get(identyficator=branch_uuid)
+        except Branch.DoesNotExist:
+            return Response({'error': 'Nie znaleziono branchu o podanym identyfikatorze.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            doctor = ProfileCentralUser.objects.get(id=doctor_id)
+        except ProfileCentralUser.DoesNotExist:
+            return Response({'error': 'Nie znaleziono lekarza o podanym identyfikatorze.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if doctor.branch != branch:
+            return Response({'error': 'Wybrany lekarz nie należy do tego branchu.'}, status=status.HTTP_400_BAD_REQUEST)
+
         office = None
         if office_id:
             try:
                 office = Office.objects.get(id=office_id)
             except Office.DoesNotExist:
                 return Response({'error': 'Nie znaleziono gabinetu.'}, status=status.HTTP_404_NOT_FOUND)
+            if office.branch != branch:
+                return Response({'error': 'Wybrany gabinet nie należy do tego branchu.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        slots = get_time_slots_for_date_range(doctor_id, start_date, end_date, interval_minutes, office)
+        slots = get_time_slots_for_date_range(doctor, start_date, end_date, interval_minutes, office)
         serialized_slots = TimeSlotSerializer(slots, many=True)
         return Response(serialized_slots.data, status=status.HTTP_200_OK)
+
     
 
 class AvailableAssistantsView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
 
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        try:
+            branch = Branch.objects.get(identyficator=branch_uuid)
+        except Branch.DoesNotExist:
+            return Response({'error': 'Nie znaleziono branchu o podanym identyfikatorze.'}, status=status.HTTP_404_NOT_FOUND)
+
         data = request.data
         date_str = data.get('date')
         start_time_str = data.get('start_time')
@@ -147,37 +170,48 @@ class AvailableAssistantsView(APIView):
             return Response({'error': 'Brak wymaganych parametrów.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            validate_dates(date_str, date_str) 
-            validate_times(start_time_str, end_time_str)
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Nieprawidłowy format daty. Użyj YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            start_time = datetime.strptime(start_time_str, '%H:%M').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M').time()
+        except ValueError:
+            return Response({'error': 'Nieprawidłowy format godziny. Użyj HH:MM.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            validate_dates(date, date) 
+            validate_times(start_time, end_time)
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        assistants = ProfileCentralUser.objects.filter(role='assistant')
-
+        assistants = ProfileCentralUser.objects.filter(role='assistant', branch=branch)
         available_assistants = []
+        day_num = date.weekday()
 
         for assistant in assistants:
-            day_num = date_str.weekday()
-            
             try:
                 schedule = EmployeeSchedule.objects.get(employee=assistant, day_num=day_num)
             except EmployeeSchedule.DoesNotExist:
                 continue
 
-            if start_time_str < schedule.start_time or end_time_str > schedule.end_time:
+            if start_time < schedule.start_time or end_time > schedule.end_time:
                 continue
 
             conflicting_events = Event.objects.filter(
                 assistant=assistant,
-                date=date_str,
-                start_time__lt=end_time_str,
-                end_time__gt=start_time_str
+                date=date,
+                start_time__lt=end_time,
+                end_time__gt=start_time,
+                branch=branch
             )
+
             if conflicting_events.exists():
                 continue
-            
+
             available_assistants.append(assistant)
-            
+
         serializer = ProfileCentralUserSerializer(available_assistants, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

@@ -15,7 +15,7 @@ UserRoles = [
 
 class ProfileCentralUser(models.Model):
     # admin
-    branch = models.OneToOneField('branch.Branch', on_delete=models.CASCADE, null=True, blank=True, related_name='profile_central_user')
+    branch = models.ForeignKey('branch.Branch', on_delete=models.CASCADE, null=True, blank=True, related_name='profile_central_user')
     role = models.CharField(max_length=30, choices=UserRoles, default='none')
     is_admin = models.BooleanField(default=False)
 

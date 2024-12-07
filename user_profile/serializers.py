@@ -22,11 +22,12 @@ class MeProfileSerializer(serializers.ModelSerializer):
     def get_profile(self, obj):
         request = self.context.get('request')
         tenant = getattr(request, 'tenant', None)
+        branch_uuid = self.context.get('branch_uuid')
 
-        if tenant:
+        if tenant and branch_uuid:
             with tenant_context(tenant):
                 try:
-                    profile = obj.profile.first()
+                    profile = obj.profile.get(branch__identyficator=branch_uuid)
                     return ProfileCentral(profile, context=self.context).data
                 except ProfileCentralUser.DoesNotExist:
                     return None

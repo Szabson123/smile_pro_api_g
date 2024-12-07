@@ -126,3 +126,8 @@ def validate_dates(start_date, end_date):
         
     if start_date > end_date:
         raise ValidationError("Data początkowa musi być wcześniejsza lub równa dacie końcowej.")
+
+
+def validate_doctor_id_with_id(self, value):
+    doctor = validate_doctor_id(value)
+    return doctor.id

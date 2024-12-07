@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from .models import Event, Absence, Office, VisitType, Tags
-from .validators import validate_doctor_id, validate_office_id, validate_assistant_id, validate_patient_id, validate_dates, validate_times, is_doctor_available, is_office_available, is_assistant_available, is_patient_available
+from .validators import validate_doctor_id, validate_office_id, validate_assistant_id, validate_patient_id, validate_dates, validate_times, is_doctor_available, is_office_available, is_assistant_available, is_patient_available, validate_doctor_id_with_id
 
 from user_profile.models import EmployeeSchedule, ProfileCentralUser
 from patients.models import Patient
@@ -205,8 +205,8 @@ class TimeSlotRequestSerializer(serializers.Serializer):
     start_date = serializers.DateField()
     end_date = serializers.DateField()
 
-    def validate_doctor_id(self, value):
-        return validate_doctor_id(value)
+    def validate_doctor_id_with_id(self, value):
+        return validate_doctor_id_with_id(value)
 
     def validate(self, attrs):
         start_date = attrs.get('start_date')

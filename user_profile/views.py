@@ -13,21 +13,22 @@ from user_profile.serializers import EmployeeProfileSerializer
 from user_profile.models import ProfileCentralUser, UserRoles
 from user_profile.permissions import HasProfilePermission, IsOwnerOfInstitution
 
+from branch.models import Branch
 # Lista pracowników na zasadzie Imie nazwiko rola
 class ProfileListView(ListAPIView):
     serializer_class = ProfileCentralUserSerializer
     permission_classes = [IsOwnerOfInstitution]
     
     def get_queryset(self):
-        
-        return ProfileCentralUser.objects.all()
-
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return ProfileCentralUser.objects.filter(branch__identyficator=branch_uuid)
 
 class CurrentProfile(APIView):
     permission_classes = [HasProfilePermission]
 
-    def get(self, request):
-        serializer = MeProfileSerializer(request.user, context={'request': request})
+    def get(self, request, *args, **kwargs):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        serializer = MeProfileSerializer(request.user, context={'request': request, 'branch_uuid': branch_uuid})
         return Response(serializer.data)
 
 # Cały CRUD Związany z pracownikami 
@@ -38,10 +39,13 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
     filterset_fields = ['role']
 
     def get_queryset(self):
-        return ProfileCentralUser.objects.all()
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return ProfileCentralUser.objects.filter(branch__identyficator=branch_uuid)
 
     def perform_create(self, serializer):
-        serializer.save()
+        branch_uuid = self.kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+        serializer.save(branch=branch)
     
     @action(detail=True, methods=['POST'])    
     def change_role(self, request):

@@ -14,17 +14,11 @@ class EventSerializer(serializers.ModelSerializer):
     office_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     assistant_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     patient_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-    
+
     doctor = serializers.IntegerField(source='doctor.id', read_only=True)
     office = serializers.IntegerField(source='office.id', read_only=True)
     assistant = serializers.IntegerField(source='assistant.id', read_only=True)
     patient = serializers.IntegerField(source='patient.id', read_only=True)
-
-    is_rep = serializers.BooleanField(write_only=True, default=False)
-    rep_id = serializers.IntegerField(read_only=True)
-    end_date = serializers.DateField(write_only=True, required=False)
-    interval_days = serializers.IntegerField(write_only=True, required=False)
-
     tags = serializers.PrimaryKeyRelatedField(queryset=Tags.objects.all(), many=True, required=False)
 
     class Meta:
@@ -32,10 +26,9 @@ class EventSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'doctor_id', 'office_id', 'assistant_id', 'patient_id',
             'doctor', 'office', 'assistant', 'patient', 'date', 'start_time',
-            'end_time', 'cost', 'visit_type', 'tags', 'description',
-            'is_rep', 'rep_id', 'end_date', 'interval_days'
+            'end_time', 'cost', 'visit_type', 'tags', 'description'
         ]
-        read_only_fields = ['id', 'rep_id']
+        read_only_fields = ['id', 'rep_id', 'is_rep']
 
     def validate(self, data):
         doctor_id = data.get('doctor_id')
@@ -45,14 +38,13 @@ class EventSerializer(serializers.ModelSerializer):
         date = data.get('date')
         start_time = data.get('start_time')
         end_time = data.get('end_time')
-
         exclude_event_id = self.instance.id if self.instance else None
 
         doctor = validate_doctor_id(doctor_id)
         office = validate_office_id(office_id)
         assistant = validate_assistant_id(assistant_id)
         patient = validate_patient_id(patient_id)
-        
+
         validate_times(start_time, end_time)
 
         if not is_doctor_available(doctor, date, start_time, end_time, exclude_event_id=exclude_event_id):
@@ -79,7 +71,6 @@ class EventSerializer(serializers.ModelSerializer):
         branch_uuid = self.context['view'].kwargs.get('branch_uuid')
         branch = Branch.objects.get(identyficator=branch_uuid)
 
-        # Sprawdzamy profil lekarza w tym branchu
         try:
             profile = validated_data['doctor'].user.profile.get(branch=branch)
         except:
@@ -87,67 +78,41 @@ class EventSerializer(serializers.ModelSerializer):
 
         validated_data['branch'] = branch
 
-        # Sprawdzenie czy wszystkie powiązane obiekty należą do tego samego branchu
         doctor = validated_data['doctor']
         office = validated_data.get('office')
         assistant = validated_data.get('assistant')
         patient = validated_data.get('patient')
 
-        # Lekarz już jest sprawdzony przez profil, ale można dodatkowo sprawdzić:
         if doctor.branch != branch:
             raise serializers.ValidationError("Wybrany lekarz nie należy do tego branchu.")
-
         if office and office.branch != branch:
             raise serializers.ValidationError("Wybrany gabinet nie należy do tego branchu.")
-
         if assistant and assistant.branch != branch:
             raise serializers.ValidationError("Wybrany asystent nie należy do tego branchu.")
-
         if patient and patient.branch != branch:
             raise serializers.ValidationError("Wybrany pacjent nie należy do tego branchu.")
 
         tags = validated_data.pop('tags', [])
-        is_rep = validated_data.pop('is_rep', False)
-        rep_id = None
 
+        is_rep = bool(self.parent)
         if is_rep:
-            last_rep = Event.objects.aggregate(max_rep=Max('rep_id'))['max_rep'] or 0
-            rep_id = last_rep + 1
 
-            date = validated_data.get('date')
-            end_date = validated_data.pop('end_date', None)
-            interval_days = validated_data.pop('interval_days', None)
+            if not hasattr(self.parent, '_rep_id'):
+                last_rep = Event.objects.aggregate(max_rep=Max('rep_id'))['max_rep'] or 0
+                new_rep_id = last_rep + 1
+                self.parent._rep_id = new_rep_id
 
-            if not all([date, end_date, interval_days]):
-                raise serializers.ValidationError(
-                    "For recurring events, 'date', 'end_date', and 'interval_days' are required."
-                )
-
-            event_dates = []
-            current_date = date
-            while current_date <= end_date:
-                event_dates.append(current_date)
-                current_date += timedelta(days=interval_days)
-
-            created_events = []
-            for event_date in event_dates:
-                event_data = validated_data.copy()
-                event_data['date'] = event_date
-                event_data['rep_id'] = rep_id
-                event_data['is_rep'] = True
-
-                event = Event.objects.create(**event_data)
-                if tags:
-                    event.tags.set(tags)
-                created_events.append(event)
-
-            return created_events
+            rep_id = self.parent._rep_id
+            validated_data['is_rep'] = True
+            validated_data['rep_id'] = rep_id
         else:
-            event = Event.objects.create(**validated_data)
-            if tags:
-                event.tags.set(tags)
-            return event
+            validated_data['is_rep'] = False
+            validated_data['rep_id'] = 0
 
+        event = Event.objects.create(**validated_data)
+        if tags:
+            event.tags.set(tags)
+        return event
 
 
 class AbsenceSerializer(serializers.ModelSerializer):

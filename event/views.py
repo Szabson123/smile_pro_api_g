@@ -13,7 +13,7 @@ from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSeria
 from .filters import EventFilter
 from .utlis import *
 from .renderers import ORJSONRenderer
-from .validators import validate_assistant_id, is_assistant_available, validate_doctor_id, is_doctor_available, is_office_available, validate_office_id, is_patient_available, validate_dates, validate_times
+from .validators import validate_assistant_id, is_assistant_available, validate_doctor_id, is_doctor_available, validate_patient_id, is_office_available, validate_office_id, is_patient_available, validate_dates, validate_times
 
 from user_profile.models import ProfileCentralUser, EmployeeSchedule
 from user_profile.permissions import IsOwnerOfInstitution, HasProfilePermission
@@ -197,11 +197,24 @@ class CheckRepetitionEvents(APIView):
             OpenApiParameter("doctor_id", type=int, description="ID lekarza", required=False),
             OpenApiParameter("assistant_id", type=int, description="ID asystenta", required=False),
             OpenApiParameter("office_id", type=int, description="ID gabinetu", required=False),
+            OpenApiParameter("patient_id", type=int, description="ID pacjenta", required=False),
         ],
         responses={200: "Lista dostępności zasobów"}
     )
-    def post(self, request):
+    def post(self, request, *args, **kwargs):
         data = request.data
+        branch_uuid = self.kwargs.get('branch_uuid')
+        try:
+            branch = Branch.objects.get(identyficator=branch_uuid)
+        except Branch.DoesNotExist:
+            return Response({'error': 'Nie znaleziono branchu o podanym identyfikatorze.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Lista wymaganych parametrów
+        required_params = ['start_date', 'end_date', 'interval_days', 'start_time', 'end_time']
+        missing_params = [param for param in required_params if not data.get(param)]
+        if missing_params:
+            return Response({'error': f"Brak wymaganych parametrów: {', '.join(missing_params)}"}, status=status.HTTP_400_BAD_REQUEST)
+
         start_date_str = data.get('start_date')
         end_date_str = data.get('end_date')
         interval_days = data.get('interval_days')
@@ -210,9 +223,7 @@ class CheckRepetitionEvents(APIView):
         doctor_id = data.get('doctor_id')
         assistant_id = data.get('assistant_id')
         office_id = data.get('office_id')
-
-        if not all([start_date_str, end_date_str, interval_days, start_time_str, end_time_str]):
-            return Response({'error': 'Brak wymaganych parametrów.'}, status=status.HTTP_400_BAD_REQUEST)
+        patient_id = data.get('patient_id')
 
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -240,25 +251,45 @@ class CheckRepetitionEvents(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         doctor = None
-        if doctor_id:
+        if doctor_id is not None:
             try:
                 doctor = validate_doctor_id(doctor_id)
             except ValidationError as e:
                 return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         assistant = None
-        if assistant_id:
+        if assistant_id is not None:
             try:
                 assistant = validate_assistant_id(assistant_id)
             except ValidationError as e:
                 return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         office = None
-        if office_id:
+        if office_id is not None:
             try:
                 office = validate_office_id(office_id)
             except ValidationError as e:
                 return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        patient = None
+        if patient_id is not None:
+            try:
+                patient = validate_patient_id(patient_id)
+            except ValidationError as e:
+                return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        # Sprawdzamy przynależność do branchu
+        if doctor and doctor.branch != branch:
+            return Response({'error': 'Wybrany lekarz nie należy do tego branchu.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if assistant and assistant.branch != branch:
+            return Response({'error': 'Wybrany asystent nie należy do tego branchu.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if office and office.branch != branch:
+            return Response({'error': 'Wybrany gabinet nie należy do tego branchu.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if patient and patient.branch != branch:
+            return Response({'error': 'Wybrany pacjent nie należy do tego branchu.'}, status=status.HTTP_400_BAD_REQUEST)
 
         dates = []
         current_date = start_date
@@ -279,12 +310,22 @@ class CheckRepetitionEvents(APIView):
             if office and not is_office_available(office, date, start_time, end_time):
                 conflicts.append('Gabinet zajęty')
 
-            availability_list.append({
+            if patient and not is_patient_available(patient, date, start_time, end_time):
+                conflicts.append('Pacjent niedostępny')
+
+            event_data = {
                 'date': date,
                 'start_time': start_time,
                 'end_time': end_time,
                 'available': not conflicts,
-                'conflicts': conflicts
-            })
+                'conflicts': conflicts,
+                'doctor_id': doctor_id,
+                'assistant_id': assistant_id,
+                'office_id': office_id,
+                'patient_id': patient_id
+            }
+
+            availability_list.append(event_data)
 
         return Response(availability_list, status=status.HTTP_200_OK)
+

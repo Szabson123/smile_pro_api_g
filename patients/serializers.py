@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Patient, Treatment
+from .models import Patient, Treatment, TreatmentPlan
 
 class PatientSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,3 +22,10 @@ class TreatmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Treatment
         fields = ['event', 'patient', 'doctor', 'date', 'duration', 'tooth', 'anesthesia', 'details']
+
+
+class TreatmentPlanSerializer(serializers.ModelSerializer):
+    treatments = TreatmentSerializer(many=True, required=False, read_only=True)
+    class Meta:
+        model = TreatmentPlan
+        fields = ['id', 'name', 'description', 'patient' ,'treatments']

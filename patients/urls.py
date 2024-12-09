@@ -8,5 +8,5 @@ router.register(r'treatment', TreatmentViewSet, basename='treatment')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('treatments/', TreatmentList.as_view(), name='treatment-list'),
+    path('treatment-list/', TreatmentList.as_view(), name='treatment-list'),
 ]

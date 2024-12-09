@@ -2,6 +2,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from institution.models import Institution, Domain, UserInstitution
 from user_profile.models import ProfileCentralUser
 from django_tenants.utils import schema_context
+from rest_framework import serializers
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
@@ -44,3 +46,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['institutions'] = institutions_data
         return data
 
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()

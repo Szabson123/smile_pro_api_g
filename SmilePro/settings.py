@@ -20,6 +20,8 @@ SHARED_APPS = [
     'django.contrib.staticfiles',
     'django_filters',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'institution',
     'custom_user',
@@ -62,7 +64,7 @@ ROOT_URLCONF = 'SmilePro.urls'
 CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173', 'http://test2.testy-smile-pro-jak.online'
+    'http://localhost:5173', 'http://test2.testy-smile-pro-jak.online', 'http://localhost:4200'
 ]
 
 TEMPLATES = [
@@ -185,6 +187,7 @@ LOGGING = {
 }
 from datetime import timedelta
 
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=99999),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -192,4 +195,5 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }

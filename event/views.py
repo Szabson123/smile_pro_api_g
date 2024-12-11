@@ -51,6 +51,10 @@ class EventCalendarViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = EventFilter
 
+    def get_queryset(self):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return Event.objects.filter(branch__identyficator=branch_uuid).select_related('doctor', 'office')
+
 
 class AbsenceViewSet(viewsets.ModelViewSet):
     serializer_class = AbsenceSerializer
@@ -60,6 +64,11 @@ class AbsenceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
         return Absence.objects.filter(branch__identyficator=branch_uuid)
+
+    def perform_create(self, serializer):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+        serializer.save(branch=branch)
         
 
 class DoctorScheduleViewSet(viewsets.ModelViewSet):
@@ -69,6 +78,11 @@ class DoctorScheduleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
         return EmployeeSchedule.objects.filter(branch__identyficator=branch_uuid)
+    
+    def perform_create(self, serializer):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+        serializer.save(branch=branch)
 
 
 class OfficeViewSet(viewsets.ModelViewSet):
@@ -76,11 +90,29 @@ class OfficeViewSet(viewsets.ModelViewSet):
     serializer_class = OfficeSerializer
     permission_classes = [HasProfilePermission]
 
+    def get_queryset(self):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return Office.objects.filter(branch__identyficator=branch_uuid)
+
+    def perform_create(self, serializer):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+        serializer.save(branch=branch)
+
 
 class TagsViewSet(viewsets.ModelViewSet):
     queryset = Tags.objects.all()
     serializer_class = TagsSerializer
     permission_classes = [HasProfilePermission]
+
+    def get_queryset(self):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        return Tags.objects.filter(branch__identyficator=branch_uuid)
+
+    def perform_create(self, serializer):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        branch = Branch.objects.get(identyficator=branch_uuid)
+        serializer.save(branch=branch)
 
 
 class VisitTypeViewSet(viewsets.ModelViewSet):
@@ -148,7 +180,6 @@ class TimeSlotView(APIView):
         serialized_slots = TimeSlotSerializer(slots, many=True)
         return Response(serialized_slots.data, status=status.HTTP_200_OK)
 
-    
 
 class AvailableAssistantsView(APIView):
     permission_classes = [IsAuthenticated]

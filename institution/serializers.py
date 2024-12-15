@@ -52,7 +52,8 @@ class InstitutionSerializer(serializers.ModelSerializer):
                     'name': owner_name,
                     'surname': owner_surname,
                     'phone_number': owner_phone_number,
-                    'role': 'admin'
+                    'role': 'admin',
+                    'is_admin': True
                 }
             )
             if not profile_created:

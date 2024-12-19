@@ -16,9 +16,12 @@ class VisitType(models.Model):
 
 class Tags(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='tags', default=None)
-    name = models.CharField(max_length=255, unique=True)
-    icon = models.CharField(max_length=255)
+    name = models.CharField(max_length=255)
+    icon = models.CharField(max_length=255, blank=True, null=True)
     color = models.CharField(max_length=255)
+
+    class Meta:
+        unique_together = ('branch', 'name')
 
 
 class Event(models.Model):

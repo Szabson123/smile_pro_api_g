@@ -22,6 +22,7 @@ from user_profile.utils import generate_daily_time_slots, mark_occupied_slots
 from branch.models import Branch
 
 from datetime import timedelta, datetime
+from dateutil.relativedelta import relativedelta
 
 class EventViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = Event.objects.select_related('doctor', 'office', 'assistant', 'patient').all()
@@ -256,7 +257,7 @@ class CheckRepetitionEvents(APIView):
         parameters=[
             OpenApiParameter("start_date", type=str, description="Data początkowa w formacie YYYY-MM-DD."),
             OpenApiParameter("end_date", type=str, description="Data końcowa w formacie YYYY-MM-DD."),
-            OpenApiParameter("interval_days", type=int, description="Interwał dni pomiędzy sprawdzeniami dostępności."),
+            OpenApiParameter("interval_days", type=str, description="Interwał dni pomiędzy sprawdzeniami dostępności możesz użyć 'month' - wtedy co miesiąc"),
             OpenApiParameter("start_time", type=str, description="Godzina początkowa w formacie HH:MM."),
             OpenApiParameter("end_time", type=str, description="Godzina końcowa w formacie HH:MM."),
             OpenApiParameter("doctor_id", type=int, description="ID lekarza", required=False),
@@ -300,11 +301,19 @@ class CheckRepetitionEvents(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            interval_days = int(interval_days)
-            if interval_days <= 0:
-                raise ValueError
+            if isinstance(interval_days, str) and interval_days.lower() == 'month':
+                interval_days = 'month'
+            else:
+                interval_days = int(interval_days)
+                if interval_days <= 0:
+                    raise ValueError
         except ValueError:
-            return Response({'error': 'Nieprawidłowa wartość interwału. Musi być liczbą całkowitą większą od zera.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Nieprawidłowa wartość interwału. Musi być liczbą całkowitą większą od zera lub wartościa month'}, status=status.HTTP_400_BAD_REQUEST)
+        #     interval_days = int(interval_days)
+        #     if interval_days <= 0:
+        #         raise ValueError
+        # except ValueError:
+        #     return Response({'error': 'Nieprawidłowa wartość interwału. Musi być liczbą całkowitą większą od zera.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             start_time = datetime.strptime(start_time_str, '%H:%M').time()
@@ -358,9 +367,19 @@ class CheckRepetitionEvents(APIView):
 
         dates = []
         current_date = start_date
-        while current_date <= end_date:
-            dates.append(current_date)
-            current_date += timedelta(days=interval_days)
+        
+        if interval_days == 'month':
+            while current_date <= end_date:
+                dates.append(current_date)
+                try:
+                    current_date += relativedelta(months=1)
+                except ValueError:
+                    current_date += relativedelta(months=1)
+                    current_date = current_date.replace(day=1)
+        else:
+            while current_date <= end_date:
+                dates.append(current_date)
+                current_date += timedelta(days=interval_days)
 
         availability_list = []
         for date in dates:

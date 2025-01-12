@@ -8,7 +8,7 @@ Status = [
     ('false', 'False'),
 ]
 
-
+    
 class Patient(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='patient', default=None)
     name = models.CharField(max_length=255)

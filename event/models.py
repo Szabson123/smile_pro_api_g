@@ -2,6 +2,28 @@ from django.db import models
 from user_profile.models import ProfileCentralUser
 from patients.models import Patient
 from branch.models import Branch
+from payment.models import Payment
+import string
+
+TypeFree = [
+    ('zwolnienie', 'Zwolnienie'),
+    ('urlop', 'Urlop'),
+    ('inne', 'Inne'),
+]
+
+Statuses_of_Event = [
+    ('planned', 'Planned'),
+    ('started', 'Started'),
+    ('in_progres', 'In_Progres'),
+    ('ended', 'Ended'),
+    ('canceled', 'Canceled'),
+]
+
+
+class EventStatus(models.Model):
+    number = models.CharField(max_length=5, null=True)
+    status = models.CharField(choices=Statuses_of_Event, default='planned')
+
 
 class Office(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='office', default=None)
@@ -32,26 +54,20 @@ class Event(models.Model):
     start_time = models.TimeField(default=None)
     end_time = models.TimeField(default=None)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, blank=True, null=True)
-    cost = models.DecimalField(null=True, blank=True, default=0, decimal_places=2, max_digits=999)
     visit_type = models.ForeignKey(VisitType, on_delete=models.CASCADE, null=True, blank=True, default=None)
+    cost = models.OneToOneField(Payment, on_delete=models.CASCADE, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     tags = models.ManyToManyField(Tags, blank=True)
     assistant = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE, blank=True, null=True, related_name='assistant')
     is_rep = models.BooleanField(default=False)
     rep_id = models.IntegerField(default=0)
-
+    event_status = models.OneToOneField(EventStatus, null=True, blank=True, related_name='event', on_delete=models.CASCADE)
+    
     class Meta:
         indexes = [
             models.Index(fields=['doctor', 'date']),
             models.Index(fields=['office', 'date']),
         ]
-
-
-TypeFree = [
-    ('zwolnienie', 'Zwolnienie'),
-    ('urlop', 'Urlop'),
-    ('inne', 'Inne'),
-]
 
 
 class Absence(models.Model):

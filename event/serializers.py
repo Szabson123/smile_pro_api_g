@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Event, Absence, Office, VisitType, Tags
+from .models import Event, Absence, Office, VisitType, Tags, EventStatus
 from .validators import validate_doctor_id, validate_office_id, validate_assistant_id, validate_patient_id, validate_dates, validate_times, is_doctor_available, is_office_available, is_assistant_available, is_patient_available, validate_doctor_id_with_id
 
 from user_profile.models import EmployeeSchedule, ProfileCentralUser
@@ -8,6 +8,18 @@ from patients.models import Patient
 from django.db.models import Max
 from datetime import timedelta
 from branch.models import Branch
+from payment.models import Payment
+from decimal import Decimal
+import decimal
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    ammount = serializers.DecimalField(max_digits=8, decimal_places=2)
+
+    class Meta:
+        model = Payment
+        fields = ['ammount']
+
 
 class EventSerializer(serializers.ModelSerializer):
     doctor_id = serializers.IntegerField(write_only=True, required=True)
@@ -20,15 +32,23 @@ class EventSerializer(serializers.ModelSerializer):
     assistant = serializers.IntegerField(source='assistant.id', read_only=True)
     patient = serializers.IntegerField(source='patient.id', read_only=True)
     tags = serializers.PrimaryKeyRelatedField(queryset=Tags.objects.all(), many=True, required=False)
+    event_status = serializers.CharField(source='event_status.status', read_only=True)
+    cost = PaymentSerializer(read_only=True)
+    cost_input = serializers.DecimalField(max_digits=8, decimal_places=2, write_only=True, required=True)
 
     class Meta:
         model = Event
         fields = [
             'id', 'doctor_id', 'office_id', 'assistant_id', 'patient_id',
             'doctor', 'office', 'assistant', 'patient', 'date', 'start_time',
-            'end_time', 'cost', 'visit_type', 'tags', 'description'
+            'end_time', 'cost', 'cost_input', 'visit_type', 'tags', 'description', 'event_status'
         ]
         read_only_fields = ['id', 'rep_id', 'is_rep']
+    
+    def validate_cost(self, value):
+        if not isinstance(value, (float, int, decimal.Decimal)):
+            raise serializers.ValidationError("Cost must be a valid decimal number.")
+        return value
 
     def validate(self, data):
         doctor_id = data.get('doctor_id')
@@ -101,7 +121,7 @@ class EventSerializer(serializers.ModelSerializer):
                 last_rep = Event.objects.aggregate(max_rep=Max('rep_id'))['max_rep'] or 0
                 new_rep_id = last_rep + 1
                 self.parent._rep_id = new_rep_id
-
+                
             rep_id = self.parent._rep_id
             validated_data['is_rep'] = True
             validated_data['rep_id'] = rep_id
@@ -109,9 +129,41 @@ class EventSerializer(serializers.ModelSerializer):
             validated_data['is_rep'] = False
             validated_data['rep_id'] = 0
 
+        # -----------------------------------
+        # Generowanie numeru w EventStatus
+        # -----------------------------------
+
+        event_date = validated_data['date']
+        max_number_str = (
+            EventStatus.objects
+            .filter(event__date=event_date)
+            .aggregate(m=Max('number'))['m']
+        )
+
+        if max_number_str:
+            current_max = int(max_number_str)
+            new_number_int = current_max + 1 
+        else:
+            new_number_int = 1
+
+        new_number_str = f"{new_number_int:05d}"
+
+        new_event_status = EventStatus.objects.create(
+            number=new_number_str,
+            status='planned' 
+        )
+
+        validated_data['event_status'] = new_event_status
+
+        cost_value = validated_data.pop('cost_input')
+        new_payment = Payment.objects.create(ammount=cost_value)
+        validated_data['cost'] = new_payment
+
         event = Event.objects.create(**validated_data)
+
         if tags:
             event.tags.set(tags)
+
         return event
 
 

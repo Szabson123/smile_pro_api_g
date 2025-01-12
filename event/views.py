@@ -24,6 +24,7 @@ from branch.models import Branch
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 
+
 class EventViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = Event.objects.select_related('doctor', 'office', 'assistant', 'patient').all()
     serializer_class = EventSerializer
@@ -412,4 +413,5 @@ class CheckRepetitionEvents(APIView):
             availability_list.append(event_data)
 
         return Response(availability_list, status=status.HTTP_200_OK)
+
 

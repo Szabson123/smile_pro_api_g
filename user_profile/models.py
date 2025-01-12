@@ -44,7 +44,6 @@ class ProfileCentralUser(models.Model):
         return f'Profile for {self.user.email}'
     
 
-
 class EmployeeSchedule(models.Model):
     employee = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='schedules', default=None)

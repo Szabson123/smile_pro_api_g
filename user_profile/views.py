@@ -14,6 +14,8 @@ from user_profile.models import ProfileCentralUser, UserRoles
 from user_profile.permissions import HasProfilePermission, IsOwnerOfInstitution
 
 from branch.models import Branch
+
+
 # Lista pracowników na zasadzie Imie nazwiko rola
 class ProfileListView(ListAPIView):
     serializer_class = ProfileCentralUserSerializer

@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from .models import Patient, Treatment, TreatmentPlan
 
+
 class PatientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient

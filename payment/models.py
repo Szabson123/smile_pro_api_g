@@ -15,6 +15,7 @@ class Deposits(models.Model):
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, null=True, blank=True)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
     ammonut = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    date = models.DateField(auto_now_add=True, null=True, blank=True)
 
 
 class PiggyBank(models.Model):

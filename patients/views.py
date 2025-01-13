@@ -11,7 +11,7 @@ from rest_framework.response import Response
 import random
 from rest_framework.pagination import PageNumberPagination
 from event.renderers import ORJSONRenderer
-
+from rest_framework.filters import SearchFilter
 
 class CustomPatientPagination(PageNumberPagination):
     page_size = 100
@@ -25,6 +25,8 @@ class PatientViewSet(viewsets.ModelViewSet):
     ordering = ['name']
     pagination_class = CustomPatientPagination
     renderer_classes = [ORJSONRenderer]
+    filter_backends = [SearchFilter]
+    search_fields = ['name', 'surname', 'email']
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')

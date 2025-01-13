@@ -2,7 +2,7 @@ from django.db import models
 from user_profile.models import ProfileCentralUser
 from patients.models import Patient
 from branch.models import Branch
-from payment.models import Payment
+from payment.models import Obligation
 import string
 
 TypeFree = [
@@ -55,7 +55,7 @@ class Event(models.Model):
     end_time = models.TimeField(default=None)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, blank=True, null=True)
     visit_type = models.ForeignKey(VisitType, on_delete=models.CASCADE, null=True, blank=True, default=None)
-    cost = models.OneToOneField(Payment, on_delete=models.CASCADE, blank=True, null=True)
+    cost = models.OneToOneField(Obligation, on_delete=models.CASCADE, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     tags = models.ManyToManyField(Tags, blank=True)
     assistant = models.ForeignKey(ProfileCentralUser, on_delete=models.CASCADE, blank=True, null=True, related_name='assistant')

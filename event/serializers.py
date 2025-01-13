@@ -8,16 +8,16 @@ from patients.models import Patient
 from django.db.models import Max
 from datetime import timedelta
 from branch.models import Branch
-from payment.models import Payment
+from payment.models import Obligation
 from decimal import Decimal
 import decimal
 
 
-class PaymentSerializer(serializers.ModelSerializer):
+class ObligationSerializer(serializers.ModelSerializer):
     ammount = serializers.DecimalField(max_digits=8, decimal_places=2)
 
     class Meta:
-        model = Payment
+        model = Obligation
         fields = ['ammount']
 
 
@@ -33,7 +33,7 @@ class EventSerializer(serializers.ModelSerializer):
     patient = serializers.IntegerField(source='patient.id', read_only=True)
     tags = serializers.PrimaryKeyRelatedField(queryset=Tags.objects.all(), many=True, required=False)
     event_status = serializers.CharField(source='event_status.status', read_only=True)
-    cost = PaymentSerializer(read_only=True)
+    cost = ObligationbSerializer(read_only=True)
     cost_input = serializers.DecimalField(max_digits=8, decimal_places=2, write_only=True, required=True)
 
     class Meta:
@@ -156,7 +156,7 @@ class EventSerializer(serializers.ModelSerializer):
         validated_data['event_status'] = new_event_status
 
         cost_value = validated_data.pop('cost_input')
-        new_payment = Payment.objects.create(ammount=cost_value)
+        new_payment = Obligation.objects.create(ammount=cost_value)
         validated_data['cost'] = new_payment
 
         event = Event.objects.create(**validated_data)

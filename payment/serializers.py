@@ -7,5 +7,3 @@ class DepositsSerializer(serializers.ModelSerializer):
         model = Obligation
         fields = ['id', 'ammount', 'is_paid', 'when_paid', 'how_paid']
         
-        
-class 

@@ -22,7 +22,7 @@ Statuses_of_Event = [
 
 class EventStatus(models.Model):
     number = models.CharField(max_length=5, null=True)
-    status = models.CharField(choices=Statuses_of_Event, default='planned')
+    status = models.CharField(choices=Statuses_of_Event, default='planned', max_length=255)
 
 
 class Office(models.Model):

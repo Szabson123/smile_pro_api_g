@@ -425,7 +425,8 @@ class EventListView(ListAPIView):
     pagination_class = CustomEventPagination
     renderer_classes = [ORJSONRenderer]
     filter_backends = [SearchFilter]
-    search_fields =  ['doctor__name', 'patient__name', 'date', 'event__status', 'patient__surname']
+    search_fields = ['doctor__name', 'patient__name', 'date', 'event_status__status', 'patient__surname']
+
     
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')

@@ -33,7 +33,7 @@ class EventSerializer(serializers.ModelSerializer):
     patient = serializers.IntegerField(source='patient.id', read_only=True)
     tags = serializers.PrimaryKeyRelatedField(queryset=Tags.objects.all(), many=True, required=False)
     event_status = serializers.CharField(source='event_status.status', read_only=True)
-    cost = ObligationbSerializer(read_only=True)
+    cost = ObligationSerializer(read_only=True)
     cost_input = serializers.DecimalField(max_digits=8, decimal_places=2, write_only=True, required=True)
 
     class Meta:
@@ -156,7 +156,7 @@ class EventSerializer(serializers.ModelSerializer):
         validated_data['event_status'] = new_event_status
 
         cost_value = validated_data.pop('cost_input')
-        new_payment = Obligation.objects.create(ammount=cost_value)
+        new_payment = Obligation.objects.create(ammount=cost_value, branch=branch, patient=patient)
         validated_data['cost'] = new_payment
 
         event = Event.objects.create(**validated_data)
@@ -277,7 +277,7 @@ class EventListSerializer(serializers.ModelSerializer):
     def get_patient_surname(self, obj):
         return obj.patient.surname if obj.patient else "Unknown surname"
     
-    
+
 class TimeSlotRequestSerializer(serializers.Serializer):
     doctor_id = serializers.IntegerField()
     office_id = serializers.IntegerField(required=False, allow_null=True)

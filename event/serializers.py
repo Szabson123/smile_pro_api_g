@@ -249,6 +249,34 @@ class EventCalendarSerializer(serializers.ModelSerializer):
             return full_name if full_name else "Nieznany lekarz"
         return "Nieznany lekarz"
     
+
+class EventListSerializer(serializers.ModelSerializer):
+    doctor_name = serializers.SerializerMethodField()
+    event_status = serializers.SerializerMethodField()
+    patient_name = serializers.SerializerMethodField()
+    patient_surname = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Event
+        fields = ['id', 'doctor_name', 'patient_name', 'date', 'event_status', 'patient_surname']
+
+    def get_doctor_name(self, obj):
+        if obj.doctor:
+            name = obj.doctor.name or ""
+            surname = obj.doctor.surname or ""
+            full_name = f"{name} {surname}".strip()
+            return full_name if full_name else "Nieznany lekarz"
+        return "Nieznany lekarz"
+
+    def get_event_status(self, obj):
+        return obj.event_status.status if obj.event_status else "Unknown status"
+
+    def get_patient_name(self, obj):
+        return obj.patient.name if obj.patient else "Unknown patient"
+
+    def get_patient_surname(self, obj):
+        return obj.patient.surname if obj.patient else "Unknown surname"
+    
     
 class TimeSlotRequestSerializer(serializers.Serializer):
     doctor_id = serializers.IntegerField()

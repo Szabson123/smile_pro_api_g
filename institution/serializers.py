@@ -25,6 +25,11 @@ class InstitutionSerializer(serializers.ModelSerializer):
             'address',
             'vat'
         ]
+        
+    def validate_owner_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password to short, min 8 characters")
+        return value
                 
     @transaction.atomic
     def create(self, validated_data):

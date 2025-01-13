@@ -15,7 +15,7 @@ class Patient(models.Model):
     surname = models.CharField(max_length=255)
     email = models.CharField(max_length=255)
     age = models.IntegerField()
-
+    
 
 class TreatmentPlan(models.Model):
     branch = models.ForeignKey('branch.Branch', on_delete=models.CASCADE, related_name='treatmentplan', null=True, blank=True)

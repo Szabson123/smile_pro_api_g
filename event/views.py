@@ -4,12 +4,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status, mixins, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.filters import SearchFilter
 
 from .models import Event, Office, Absence, VisitType, Tags, PlanChange
-from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer, TimeSlotRequestSerializer, TimeSlotSerializer
+from .serializers import EventSerializer, DoctorScheduleSerializer, AbsenceSerializer, OfficeSerializer, VisitTypeSerializer, TagsSerializer, EventCalendarSerializer, EventListSerializer, TimeSlotRequestSerializer, TimeSlotSerializer
+
 from .filters import EventFilter
 from .utlis import *
 from .renderers import ORJSONRenderer
@@ -310,11 +314,6 @@ class CheckRepetitionEvents(APIView):
                     raise ValueError
         except ValueError:
             return Response({'error': 'Nieprawidłowa wartość interwału. Musi być liczbą całkowitą większą od zera lub wartościa month'}, status=status.HTTP_400_BAD_REQUEST)
-        #     interval_days = int(interval_days)
-        #     if interval_days <= 0:
-        #         raise ValueError
-        # except ValueError:
-        #     return Response({'error': 'Nieprawidłowa wartość interwału. Musi być liczbą całkowitą większą od zera.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             start_time = datetime.strptime(start_time_str, '%H:%M').time()
@@ -413,5 +412,25 @@ class CheckRepetitionEvents(APIView):
             availability_list.append(event_data)
 
         return Response(availability_list, status=status.HTTP_200_OK)
+    
+    
+class CustomEventPagination(PageNumberPagination):
+    page_size = 100
+    max_page_size = 200
 
 
+class EventListView(ListAPIView):
+    serializer_class = EventListSerializer
+    queryset = Event.objects.none()
+    pagination_class = CustomEventPagination
+    renderer_classes = [ORJSONRenderer]
+    filter_backends = [SearchFilter]
+    search_fields =  ['doctor__name', 'patient__name', 'date', 'event__status', 'patient__surname']
+    
+    def get_queryset(self):
+        branch_uuid = self.kwargs.get('branch_uuid')
+        queryset = Event.objects.filter(branch__identyficator=branch_uuid).select_related(
+            'branch', 'doctor', 'patient', 'event_status'
+        )
+        return queryset
+    

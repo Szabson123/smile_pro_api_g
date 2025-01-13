@@ -21,24 +21,22 @@ class IsOwnerOfInstitution(permissions.BasePermission):
 
     def has_permission(self, request, view):
         user = request.user
-
+        
         if not user.is_authenticated:
             return False
-
+        
         branch_uuid = view.kwargs.get('branch_uuid')
+        
         if not branch_uuid:
             return False
-
         try:
             profile = ProfileCentralUser.objects.get(user=user)
-
             branch = Branch.objects.get(identyficator=branch_uuid)
-
+            
             if branch.owner == profile:
                 return True
-
             return False
-
+        
         except (ProfileCentralUser.DoesNotExist, Branch.DoesNotExist):
             return False
         

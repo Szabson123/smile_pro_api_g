@@ -11,4 +11,4 @@ class ObligationSerializerMain(serializers.ModelSerializer):
 class DepositSerializer(serializers.ModelSerializer):
     class Meta:
         model = Deposits
-        fields = ['id', ]
+        fields = ['id', 'ammonut', 'date']

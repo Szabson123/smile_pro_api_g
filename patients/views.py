@@ -113,7 +113,7 @@ class GeneratePatientsView(APIView):
     def post(self, request, *args, **kwargs):
         branch_uuid = self.kwargs.get('branch_uuid')
         branch = Branch.objects.get(identyficator=branch_uuid)
-        number_of_patients = 635000
+        number_of_patients = 500
 
         patients_data = []
         for i in range(number_of_patients):

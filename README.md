@@ -26,7 +26,8 @@ With over **30 API endpoints**, the system is designed to support a wide range o
 - Continuous optimization is performed to enhance responsiveness and reduce load times.  
 
 ### **Rust-Based Microservice for Time Slots**  
-To further improve performance, a **microservice written in Rust** is currently in development for handling time slots.  
+To further improve performance, a **microservice written in Rust** is currently in development for handling time slots.
+https://github.com/Szabson123/smile-pro-micro-service
 
 - Preliminary benchmarks show that this Rust-based microservice is **10x faster** than existing implementations in Django.  
 - Rust's performance benefits, such as **zero-cost abstractions, memory safety, and efficient concurrency**, contribute to this significant speed increase.  
@@ -45,16 +46,13 @@ The project utilizes modern and efficient technologies to ensure stability, scal
 ### Other Integrations  
 - **Docker & Docker Compose** – for containerization and deployment.  
 - **Nginx** – for reverse proxy and load balancing.  
-- **CI/CD Pipelines** – for automated testing and deployment.  
 
 ## 📈 Future Development  
 
 Smile Pro API is actively evolving, with new features and optimizations being implemented regularly. Some of the key areas of future development include:  
 
 - Expanding **Rust microservices** to other performance-critical areas of the application.  
-- Implementing **real-time processing** using WebSockets.  
 - Enhancing **caching mechanisms** to further reduce response times.  
-- Developing **advanced analytics and reporting** tools for businesses.  
 
 ## 🛠️ Setup and Installation  
 

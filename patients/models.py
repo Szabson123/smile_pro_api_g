@@ -32,11 +32,21 @@ class Treatment(models.Model):
     doctor = models.ForeignKey('user_profile.ProfileCentralUser', on_delete=models.CASCADE, null=True, blank=True)
     date = models.DateField(null=True, blank=True)
     duration = models.IntegerField(null=True, blank=True)
-    tooth = models.CharField(max_length=255, default='Brak', null=True, blank=True)
     anesthesia = models.CharField(max_length=1024, null=True, blank=True)
     details = models.TextField(null=True, blank=True)
     procedure = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=30, choices=Status, default='false')
+
+
+class Teeth(models.Model):
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
+    treatment = models.ForeignKey(Treatment, on_delete=models.CASCADE, related_name='teeth', null=True, blank=True)
+    name = models.CharField(max_length=255)
+
+
+class TeethInfo(models.Model):
+    teeth = models.ForeignKey(Teeth, models.CASCADE, related_name='info')
+    problem = models.CharField(max_length=255)
 
 
 # class TreatmentFiles(models.Model):

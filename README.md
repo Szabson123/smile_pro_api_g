@@ -6,7 +6,7 @@
 
 Smile Pro API is not a simple application—it's a powerful backend solution built to handle complex business processes. It leverages **multi-schema PostgreSQL architecture**, ensuring seamless data isolation for different tenants while maintaining optimal performance.  
 
-With over **30 API endpoints**, the system is designed to support a wide range of functionalities, making it a reliable backbone for enterprise applications. As the business logic has evolved throughout development, the architecture has been continuously refined to maintain efficiency and scalability.  
+With over **50 API endpoints**, the system is designed to support a wide range of functionalities, making it a reliable backbone for enterprise applications. As the business logic has evolved throughout development, the architecture has been continuously refined to maintain efficiency and scalability.  
 
 ##  Key Features
 

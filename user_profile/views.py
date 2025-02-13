@@ -47,17 +47,7 @@ class EmployeeProfileViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         branch_uuid = self.kwargs.get('branch_uuid')
         branch = Branch.objects.get(identyficator=branch_uuid)
+        self.request.branch = branch
+        # Dodanie branch do walidacji
         serializer.save(branch=branch)
     
-    @action(detail=True, methods=['POST'])    
-    def change_role(self, request):
-        profile = self.get_object()
-        new_role = request.data.get('role')
-        
-        if new_role not in dict(UserRoles):
-            return Response({'error': 'Nie ma takiej roli'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        profile.role = new_role
-        profile.save()
-        
-        return Response({'status': "Rola została zmieniona"}, status=status.HTTP_200_OK)

@@ -5,6 +5,7 @@ from institution.models import UserInstitution
 from django.db import transaction
 from django_tenants.utils import tenant_context
 
+
 class ProfileCentral(serializers.ModelSerializer):
 
     class Meta:
@@ -34,6 +35,7 @@ class MeProfileSerializer(serializers.ModelSerializer):
         else:
             return None
 
+
 class ProfileCentralUserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email')
 
@@ -49,6 +51,7 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
         model = ProfileCentralUser
         fields = [
             'id',
+            'role',
             'email',
             'name',
             'surname',
@@ -67,6 +70,7 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         email = validated_data.pop('email')
         institution = self.context['request'].tenant 
+        branch = self.context['request'].branch
 
         with transaction.atomic():
             central_user, created = CentralUser.objects.get_or_create(email=email)
@@ -74,8 +78,12 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
                 temp_password = make_random_password()
                 central_user.set_password(temp_password)
                 central_user.save()
+
             UserInstitution.objects.get_or_create(user=central_user, institution=institution)
 
-            profile = ProfileCentralUser.objects.create(user=central_user, **validated_data)
+            if not ProfileCentralUser.objects.filter(user=central_user, branch=branch).exists():
+                profile = ProfileCentralUser.objects.create(user=central_user, branch=branch, **validated_data)
+            else:
+                raise serializers.ValidationError("Profile for this user already exists in the branch.")
 
         return profile

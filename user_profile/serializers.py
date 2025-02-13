@@ -82,7 +82,7 @@ class EmployeeProfileSerializer(serializers.ModelSerializer):
             UserInstitution.objects.get_or_create(user=central_user, institution=institution)
 
             if not ProfileCentralUser.objects.filter(user=central_user, branch=branch).exists():
-                profile = ProfileCentralUser.objects.create(user=central_user, branch=branch, **validated_data)
+                profile = ProfileCentralUser.objects.create(user=central_user, **validated_data)
             else:
                 raise serializers.ValidationError("Profile for this user already exists in the branch.")
 

@@ -69,8 +69,27 @@ class AbsenceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
-        return Absence.objects.filter(branch__identyficator=branch_uuid)
+        user = self.request.user
+        profile_id = self.request.query_params.get('profile')
 
+        try:
+            profile = ProfileCentralUser.objects.get(user=user, branch__identyficator=branch_uuid)
+        except ProfileCentralUser.DoesNotExist:
+            return Absence.objects.none()
+
+        queryset = Absence.objects.filter(branch__identyficator=branch_uuid)
+
+        if profile_id:
+            try:
+                profile = ProfileCentralUser.objects.get(id=profile_id, branch__identyficator=branch_uuid)
+                queryset = queryset.filter(profile=profile)
+            except ProfileCentralUser.DoesNotExist:
+                raise serializers.ValidationError("Podany profil nie istnieje w tym branchu.")
+        else:
+            queryset = queryset.filter(profile=profile)
+
+        return queryset
+    
     def perform_create(self, serializer):
         branch_uuid = self.kwargs.get('branch_uuid')
         branch = Branch.objects.get(identyficator=branch_uuid)
@@ -80,10 +99,30 @@ class AbsenceViewSet(viewsets.ModelViewSet):
 class DoctorScheduleViewSet(viewsets.ModelViewSet):
     serializer_class = DoctorScheduleSerializer
     permission_classes = [IsAuthenticated, HasProfilePermission]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['employee']
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
-        return EmployeeSchedule.objects.filter(branch__identyficator=branch_uuid)
+        user = self.request.user
+        employee_id = self.request.query_params.get('employee')
+        try:
+            profile = ProfileCentralUser.objects.get(user=user, branch__identyficator=branch_uuid)
+        except ProfileCentralUser.DoesNotExist:
+            return EmployeeSchedule.objects.none()
+        
+        queryset = EmployeeSchedule.objects.filter(branch__identyficator=branch_uuid)
+
+        if employee_id:
+            try:
+                employee = ProfileCentralUser.objects.get(id=employee_id, branch__identyficator=branch_uuid)
+                queryset = queryset.filter(employee=employee)
+            except ProfileCentralUser.DoesNotExist:
+                raise serializers.ValidationError("Podany pracownik nie istnieje w tym branchu.")
+        else:
+            queryset = queryset.filter(employee=profile)
+
+        return queryset
     
     def perform_create(self, serializer):
         branch_uuid = self.kwargs.get('branch_uuid')

@@ -5,7 +5,7 @@ from .views import EventViewSet, TimeSlotView, AbsenceViewSet, DoctorScheduleVie
 router = DefaultRouter()
 router.register(r'events', EventViewSet, basename='events')
 router.register(r'absence', AbsenceViewSet, basename='absence')
-router.register(r'doctor_schedule', DoctorScheduleViewSet, basename='doctor_schedule')
+router.register(r'schedules', DoctorScheduleViewSet, basename='doctorschedule')
 router.register(r'office', OfficeViewSet, basename='office')
 router.register(r'tags', TagsViewSet, basename='tags')
 router.register(r'visittype', VisitTypeViewSet, basename='visittype')

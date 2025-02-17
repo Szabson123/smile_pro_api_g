@@ -134,6 +134,8 @@ class OfficeViewSet(viewsets.ModelViewSet):
     queryset = Office.objects.all()
     serializer_class = OfficeSerializer
     permission_classes = [HasProfilePermission]
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')

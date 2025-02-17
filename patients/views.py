@@ -46,7 +46,7 @@ class TreatmentList(generics.ListAPIView):
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
-        patient = self.request.query_params.get('patient')
+        patient = self.kwargs.get('patient_id')
         if branch_uuid and patient:
             return Treatment.objects.filter(
                 branch__identyficator=branch_uuid, 
@@ -61,12 +61,14 @@ class TreatmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
-        return Treatment.objects.filter(branch__identyficator=branch_uuid)
+        patient = self.kwargs.get('patient_id')
+        return Treatment.objects.filter(branch__identyficator=branch_uuid, patient__id=patient)
 
     def perform_create(self, serializer):
         branch_uuid = self.kwargs.get('branch_uuid')
         branch = Branch.objects.get(identyficator=branch_uuid)
-        serializer.save(branch=branch)
+        patient = self.kwargs.get('patient_id')
+        serializer.save(branch=branch, patient=patient)
     
     def list(self, request, *args, **kwargs):
         raise MethodNotAllowed("GET", detail="List action is not allowed for this endpoint.")
@@ -78,7 +80,7 @@ class TreatmentPlanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
-        patient = self.request.query_params.get('patient')
+        patient = self.kwargs.get('patient_id')
         if branch_uuid and patient:
             return TreatmentPlan.objects.filter(
                 branch__identyficator=branch_uuid, 
@@ -92,7 +94,7 @@ class TreatmentPlanViewSet(viewsets.ModelViewSet):
         serializer.save(branch=branch)
 
 
-class PlanTreatmentCreateView(generics.CreateAPIView):
+class TreatmentInPlanCreateView(generics.CreateAPIView):
     serializer_class = TreatmentSerializer
     permission_classes = [HasProfilePermission]
 

@@ -110,6 +110,8 @@ class TagsViewSet(viewsets.ModelViewSet):
     queryset = Tags.objects.all()
     serializer_class = TagsSerializer
     permission_classes = [HasProfilePermission]
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
 
     def get_queryset(self):
         branch_uuid = self.kwargs.get('branch_uuid')
